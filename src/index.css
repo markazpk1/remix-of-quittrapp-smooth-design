@@ -1,0 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 20% 97%;
+    --foreground: 240 15% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 15% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 15% 10%;
+
+    --primary: 270 75% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 12% 90%;
+    --secondary-foreground: 260 15% 25%;
+
+    --muted: 240 10% 92%;
+    --muted-foreground: 240 8% 40%;
+
+    --accent: 270 65% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 260 12% 85%;
+    --input: 260 12% 85%;
+    --ring: 270 75% 50%;
+
+    --radius: 0.75rem;
+
+    --purple-glow: 270 60% 50%;
+    --purple-soft: 265 30% 92%;
+    --surface-glass: 250 15% 96%;
+
+    --sidebar-background: 260 15% 96%;
+    --sidebar-foreground: 240 15% 15%;
+    --sidebar-primary: 270 75% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 260 12% 90%;
+    --sidebar-accent-foreground: 260 15% 20%;
+    --sidebar-border: 260 12% 85%;
+    --sidebar-ring: 270 75% 50%;
+  }
+
+  .dark {
+    --background: 240 20% 4%;
+    --foreground: 0 0% 95%;
+
+    --card: 240 15% 8%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 240 15% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 270 80% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 15% 12%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 240 10% 14%;
+    --muted-foreground: 240 5% 55%;
+
+    --accent: 270 60% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 240 10% 16%;
+    --input: 240 10% 16%;
+    --ring: 270 80% 60%;
+
+    --purple-glow: 270 80% 60%;
+    --purple-soft: 270 40% 20%;
+    --surface-glass: 240 15% 10%;
+
+    --sidebar-background: 240 15% 6%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 270 80% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 15% 12%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 240 10% 16%;
+    --sidebar-ring: 270 80% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl shadow-sm;
+  }
+
+  .dark .glass-card {
+    @apply bg-card/60 border-border/50 shadow-none;
+  }
+
+  .purple-glow {
+    box-shadow: 0 0 30px -8px hsl(var(--purple-glow) / 0.25),
+                0 0 60px -16px hsl(var(--purple-glow) / 0.12);
+  }
+
+  .dark .purple-glow {
+    box-shadow: 0 0 40px -10px hsl(var(--purple-glow) / 0.4),
+                0 0 80px -20px hsl(var(--purple-glow) / 0.2);
+  }
+
+  .purple-glow-sm {
+    box-shadow: 0 0 16px -4px hsl(var(--purple-glow) / 0.2);
+  }
+
+  .dark .purple-glow-sm {
+    box-shadow: 0 0 20px -5px hsl(var(--purple-glow) / 0.3);
+  }
+
+  .text-gradient-purple {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(270 75% 45%), hsl(280 80% 55%), hsl(270 75% 45%));
+  }
+
+  .dark .text-gradient-purple {
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(280 90% 70%), hsl(var(--primary)));
+  }
+
+  .bg-gradient-purple {
+    background: linear-gradient(135deg, hsl(270 75% 48%), hsl(280 80% 58%));
+  }
+
+  .dark .bg-gradient-purple {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(280 90% 65%));
+  }
+
+  .bg-gradient-dark {
+    background: linear-gradient(180deg, hsl(var(--background)), hsl(240 15% 93%));
+  }
+
+  .dark .bg-gradient-dark {
+    background: linear-gradient(180deg, hsl(var(--background)), hsl(240 20% 6%));
+  }
+
+  .animate-scroll-in {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+
+  .animate-scroll-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .marquee {
+    animation: marquee 30s linear infinite;
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+}
