@@ -40,11 +40,14 @@ export default function AdminCommunity() {
         api.getCommunityStats(),
       ]);
 
-      setPosts(postsRes || []);
-      setReports(reportsRes || []);
+      setPosts(Array.isArray(postsRes) ? postsRes : []);
+      setReports(Array.isArray(reportsRes) ? reportsRes : []);
     } catch (error) {
       console.error('Failed to fetch community data:', error);
       toast({ title: "Error", description: "Failed to load community data" });
+      // Set empty arrays to prevent filter errors
+      setPosts([]);
+      setReports([]);
     } finally {
       setLoading(false);
     }
