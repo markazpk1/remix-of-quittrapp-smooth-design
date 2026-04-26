@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   Plus, Pencil, Settings2, ToggleLeft, Trash2, Blocks,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api";
 
 interface AppService {
   id: string;
@@ -28,25 +29,13 @@ interface AppService {
 }
 
 const iconMap: Record<string, React.ElementType> = {
-  Emergency: AlertTriangle, Social: Users, Education: BookOpen, Wellness: Headphones,
-  AI: Bot, Recovery: Target, Analytics: TrendingUp, Safety: Shield, Default: Blocks,
+  Education: BookOpen, Social: Users, Wellness: Headphones, AI: Bot,
+  Recovery: Target, Analytics: TrendingUp, Safety: Shield, Default: Blocks,
 };
 
-const initialServices: AppService[] = [
-  { id: "panic-button", name: "Panic Button", description: "Instant urge-relief tool that helps users regain control when triggered.", icon: AlertTriangle, enabled: true, usersActive: 8420, category: "Emergency", version: "2.3" },
-  { id: "community", name: "Community Feed", description: "Social feed where users share progress, support each other, and celebrate milestones.", icon: Users, enabled: true, usersActive: 11230, category: "Social", version: "3.1" },
-  { id: "lessons", name: "Lessons & Learn", description: "Science-backed educational content about addiction, recovery, and healthy habits.", icon: BookOpen, enabled: true, usersActive: 6780, category: "Education", version: "1.8" },
-  { id: "sound-therapy", name: "Sound Therapy", description: "Calming soundscapes and guided meditations for stress relief and mindfulness.", icon: Headphones, enabled: true, usersActive: 4350, category: "Wellness", version: "1.5" },
-  { id: "ai-companion", name: "AI Companion", description: "Personalized AI chatbot providing 24/7 support, advice, and accountability.", icon: Bot, enabled: true, usersActive: 9120, category: "AI", version: "4.0" },
-  { id: "personalized-plan", name: "Personalized Plan", description: "Custom recovery roadmap based on user habits, goals, and progress patterns.", icon: Target, enabled: true, usersActive: 7640, category: "Recovery", version: "2.0" },
-  { id: "progress-tracker", name: "Progress & Streaks", description: "Detailed analytics dashboard tracking streaks, milestones, and recovery patterns.", icon: TrendingUp, enabled: true, usersActive: 12100, category: "Analytics", version: "3.2" },
-  { id: "content-blocker", name: "Content Blocker", description: "Built-in web filter and blocker to help users avoid triggering content.", icon: Shield, enabled: false, usersActive: 0, category: "Safety", version: "0.9" },
-];
-
 const categoryColor: Record<string, string> = {
-  Emergency: "bg-red-500/20 text-red-400 border-red-500/30",
-  Social: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   Education: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  Social: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   Wellness: "bg-green-500/20 text-green-400 border-green-500/30",
   AI: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   Recovery: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
@@ -55,13 +44,76 @@ const categoryColor: Record<string, string> = {
 };
 
 export default function AdminServices() {
-  const [services, setServices] = useState(initialServices);
+  const [services, setServices] = useState<AppService[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editService, setEditService] = useState<AppService | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState({ name: "", category: "", description: "" });
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
+
+  useEffect(() => {
+    fetchServicesData();
+  }, []);
+
+  const fetchServicesData = async () => {
+    try {
+      setLoading(true);
+      const stats = await api.getServicesStats();
+      
+      // Create services based on actual data
+      const servicesList: AppService[] = [
+        {
+          id: "library",
+          name: "Islamic Library",
+          description: "Educational content including Quran, Hadith, and Islamic studies materials.",
+          icon: BookOpen,
+          enabled: true,
+          usersActive: stats.library || 0,
+          category: "Education",
+          version: "1.0"
+        },
+        {
+          id: "threads",
+          name: "Community Threads",
+          description: "Social platform for users to share knowledge, ask questions, and discuss Islamic topics.",
+          icon: Users,
+          enabled: true,
+          usersActive: stats.threads || 0,
+          category: "Social",
+          version: "1.0"
+        },
+        {
+          id: "daily-goals",
+          name: "Daily Goals",
+          description: "Track daily prayer, Quran reading, and other Islamic practice goals.",
+          icon: Target,
+          enabled: true,
+          usersActive: stats.activeUsers || 0,
+          category: "Recovery",
+          version: "1.0"
+        },
+        {
+          id: "pomodoro",
+          name: "Productivity Timer",
+          description: "Pomodoro technique timer for focused study and work sessions.",
+          icon: TrendingUp,
+          enabled: true,
+          usersActive: stats.pomodoro || 0,
+          category: "Analytics",
+          version: "1.0"
+        }
+      ];
+
+      setServices(servicesList);
+    } catch (error) {
+      console.error('Failed to fetch services data:', error);
+      toast({ title: "Error", description: "Failed to load services data" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleService = (id: string) => {
     setServices((prev) => prev.map((s) => {
@@ -73,34 +125,20 @@ export default function AdminServices() {
   };
 
   const addService = () => {
-    if (!form.name || !form.category) return;
-    const id = form.name.toLowerCase().replace(/\s+/g, "-");
-    const icon = iconMap[form.category] || iconMap.Default;
-    setServices((prev) => [...prev, { id, name: form.name, description: form.description, icon, enabled: true, usersActive: 0, category: form.category, version: "1.0" }]);
-    toast({ title: "Service Created", description: `${form.name} has been added.` });
+    toast({ title: "Not Implemented", description: "Custom service creation coming soon" });
     setAddOpen(false);
     setForm({ name: "", category: "", description: "" });
   };
 
   const saveEdit = () => {
-    if (!editService) return;
-    setServices((prev) => prev.map((s) => s.id === editService.id ? { ...s, name: form.name || s.name, description: form.description || s.description, category: form.category || s.category } : s));
-    toast({ title: "Service Updated", description: `${form.name || editService.name} has been saved.` });
+    toast({ title: "Not Implemented", description: "Service editing coming soon" });
     setEditOpen(false);
     setEditService(null);
   };
 
   const deleteService = (id: string) => {
     const svc = services.find((s) => s.id === id);
-    setConfirm({
-      open: true,
-      title: `Delete ${svc?.name}?`,
-      description: `This will permanently remove the "${svc?.name}" service. ${svc?.usersActive ? `${svc.usersActive.toLocaleString()} active users will be affected.` : ""}`,
-      onConfirm: () => {
-        setServices((prev) => prev.filter((s) => s.id !== id));
-        toast({ title: "Service Deleted", description: `${svc?.name} has been removed.` });
-      },
-    });
+    toast({ title: "Not Implemented", description: "Service deletion coming soon" });
   };
 
   const filtered = services.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.category.toLowerCase().includes(search.toLowerCase()));
@@ -149,58 +187,70 @@ export default function AdminServices() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total Services", value: services.length, icon: Settings2 },
-          { label: "Active", value: totalActive, icon: ToggleLeft },
-          { label: "Total Users Engaged", value: services.reduce((a, s) => a + s.usersActive, 0).toLocaleString(), icon: Users },
-          { label: "Categories", value: [...new Set(services.map((s) => s.category))].length, icon: Target },
-        ].map((st) => (
-          <Card key={st.label} className="bg-card/60 border-border/40">
-            <CardContent className="p-4">
-              <st.icon className="w-4 h-4 text-muted-foreground mb-2" />
-              <div className="text-xl font-bold font-display text-foreground">{st.value}</div>
-              <div className="text-[11px] text-muted-foreground">{st.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+          <div className="col-span-4 flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          [
+            { label: "Total Services", value: services.length, icon: Settings2 },
+            { label: "Active", value: totalActive, icon: ToggleLeft },
+            { label: "Total Users Engaged", value: services.reduce((a, s) => a + s.usersActive, 0).toLocaleString(), icon: Users },
+            { label: "Categories", value: [...new Set(services.map((s) => s.category))].length, icon: Target },
+          ].map((st) => (
+            <Card key={st.label} className="bg-card/60 border-border/40">
+              <CardContent className="p-4">
+                <st.icon className="w-4 h-4 text-muted-foreground mb-2" />
+                <div className="text-xl font-bold font-display text-foreground">{st.value}</div>
+                <div className="text-[11px] text-muted-foreground">{st.label}</div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <Input placeholder="Search services..." value={search} onChange={(e) => setSearch(e.target.value)} className="bg-secondary/40 border-border/30 max-w-sm" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filtered.map((service) => (
-          <Card key={service.id} className={`bg-card/60 border-border/40 transition-all ${!service.enabled ? "opacity-50" : ""}`}>
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-secondary/60 flex items-center justify-center">
-                    <service.icon className="w-5 h-5 text-primary" />
+        {loading ? (
+          <div className="col-span-2 flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          filtered.map((service) => (
+            <Card key={service.id} className={`bg-card/60 border-border/40 transition-all ${!service.enabled ? "opacity-50" : ""}`}>
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-secondary/60 flex items-center justify-center">
+                      <service.icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">{service.name}</div>
+                      <Badge variant="outline" className={`text-[10px] mt-0.5 ${categoryColor[service.category] || ""}`}>{service.category}</Badge>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{service.name}</div>
-                    <Badge variant="outline" className={`text-[10px] mt-0.5 ${categoryColor[service.category] || ""}`}>{service.category}</Badge>
+                  <Switch checked={service.enabled} onCheckedChange={() => toggleService(service.id)} />
+                </div>
+                <p className="text-xs text-muted-foreground mb-4 leading-relaxed">{service.description}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                    <span>{service.usersActive.toLocaleString()} users</span>
+                    <span>v{service.version}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditService(service); setForm({ name: service.name, category: service.category, description: service.description }); setEditOpen(true); }}>
+                      <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteService(service.id)}>
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    </Button>
                   </div>
                 </div>
-                <Switch checked={service.enabled} onCheckedChange={() => toggleService(service.id)} />
-              </div>
-              <p className="text-xs text-muted-foreground mb-4 leading-relaxed">{service.description}</p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-                  <span>{service.usersActive.toLocaleString()} users</span>
-                  <span>v{service.version}</span>
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditService(service); setForm({ name: service.name, category: service.category, description: service.description }); setEditOpen(true); }}>
-                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteService(service.id)}>
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

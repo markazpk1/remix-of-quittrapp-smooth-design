@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,10 @@ import {
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Search, MoreHorizontal, Shield, Ban, Mail, Trash2, UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -30,37 +31,9 @@ interface User {
   joined: string;
 }
 
-const initialUsers: User[] = [
-  { id: 1, name: "Sarah Chen", email: "sarah@techflow.io", role: "admin", status: "active", plan: "Pro", joined: "2025-01-15" },
-  { id: 2, name: "Marcus Rivera", email: "marcus@buildfast.co", role: "user", status: "active", plan: "Pro", joined: "2025-02-20" },
-  { id: 3, name: "Aiko Tanaka", email: "aiko@nexgen.dev", role: "user", status: "active", plan: "Starter", joined: "2025-03-08" },
-  { id: 4, name: "James O'Brien", email: "james@scaleup.com", role: "moderator", status: "active", plan: "Enterprise", joined: "2025-01-02" },
-  { id: 5, name: "Priya Sharma", email: "priya@moonshot.io", role: "user", status: "banned", plan: "Pro", joined: "2025-04-12" },
-  { id: 6, name: "Leo Martinez", email: "leo@rapid.dev", role: "user", status: "active", plan: "Starter", joined: "2025-05-01" },
-  { id: 7, name: "Emma Wilson", email: "emma@design.co", role: "user", status: "active", plan: "Pro", joined: "2025-06-18" },
-  { id: 8, name: "Tom Zhang", email: "tom@launch.io", role: "user", status: "inactive", plan: "Starter", joined: "2025-07-22" },
-];
-
-const roleBadge = (role: string) => {
-  const variants: Record<string, string> = {
-    admin: "bg-primary/20 text-primary border-primary/30",
-    moderator: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-    user: "bg-secondary text-muted-foreground border-border/30",
-  };
-  return variants[role] || variants.user;
-};
-
-const statusBadge = (status: string) => {
-  const variants: Record<string, string> = {
-    active: "bg-green-500/20 text-green-400 border-green-500/30",
-    banned: "bg-red-500/20 text-red-400 border-red-500/30",
-    inactive: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  };
-  return variants[status] || variants.inactive;
-};
-
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleDialogUser, setRoleDialogUser] = useState<User | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
@@ -69,32 +42,54 @@ export default function AdminUsers() {
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "user", plan: "Starter" });
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getAllUsers();
+      if (Array.isArray(data)) {
+        setUsers(data);
+      } else if (data.error) {
+        console.error('API error:', data.error);
+        toast({ title: "Error", description: data.error });
+        setUsers([]);
+      } else {
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      toast({ title: "Error", description: "Failed to load users" });
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const changeRole = () => {
+  const changeRole = async () => {
     if (!roleDialogUser || !newRole) return;
-    setUsers((prev) => prev.map((u) => u.id === roleDialogUser.id ? { ...u, role: newRole } : u));
-    toast({ title: "Role Updated", description: `${roleDialogUser.name} is now a ${newRole}.` });
-    setRoleDialogOpen(false);
-    setRoleDialogUser(null);
+    try {
+      await api.updateUserRole(roleDialogUser.id, newRole);
+      await fetchUsers();
+      toast({ title: "Role Updated", description: `${roleDialogUser.name} is now a ${newRole}.` });
+      setRoleDialogOpen(false);
+      setRoleDialogUser(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update role" });
+    }
   };
 
   const toggleBan = (user: User) => {
-    const newStatus = user.status === "banned" ? "active" : "banned";
-    const action = newStatus === "banned" ? "ban" : "unban";
-    setConfirm({
-      open: true,
-      title: `${newStatus === "banned" ? "Ban" : "Unban"} ${user.name}?`,
-      description: `Are you sure you want to ${action} this user? ${newStatus === "banned" ? "They will lose access to the platform." : "They will regain access."}`,
-      onConfirm: () => {
-        setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, status: newStatus } : u));
-        toast({ title: newStatus === "banned" ? "User Banned" : "User Unbanned", description: `${user.name} has been ${action}ned.` });
-      },
-    });
+    // Banning functionality would need to be implemented
+    toast({ title: "Not Implemented", description: "Ban functionality coming soon" });
   };
 
   const deleteUser = (user: User) => {
@@ -102,9 +97,14 @@ export default function AdminUsers() {
       open: true,
       title: `Delete ${user.name}?`,
       description: "This will permanently remove the user and all their data. This action cannot be undone.",
-      onConfirm: () => {
-        setUsers((prev) => prev.filter((u) => u.id !== user.id));
-        toast({ title: "User Deleted", description: `${user.name} has been removed.` });
+      onConfirm: async () => {
+        try {
+          await api.deleteUser(user.id);
+          await fetchUsers();
+          toast({ title: "User Deleted", description: `${user.name} has been removed.` });
+        } catch (error) {
+          toast({ title: "Error", description: "Failed to delete user" });
+        }
       },
     });
   };
@@ -114,12 +114,26 @@ export default function AdminUsers() {
   };
 
   const addUser = () => {
-    if (!newUser.name || !newUser.email) return;
-    const id = Math.max(...users.map((u) => u.id)) + 1;
-    setUsers((prev) => [...prev, { ...newUser, id, status: "active", joined: new Date().toISOString().split("T")[0] }]);
-    toast({ title: "User Added", description: `${newUser.name} has been created.` });
+    toast({ title: "Not Implemented", description: "User creation via admin panel coming soon" });
     setAddDialogOpen(false);
-    setNewUser({ name: "", email: "", role: "user", plan: "Starter" });
+  };
+
+  const roleBadge = (role: string) => {
+    const variants: Record<string, string> = {
+      admin: "bg-primary/20 text-primary border-primary/30",
+      moderator: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      user: "bg-secondary text-muted-foreground border-border/30",
+    };
+    return variants[role] || variants.user;
+  };
+
+  const statusBadge = (status: string) => {
+    const variants: Record<string, string> = {
+      active: "bg-green-500/20 text-green-400 border-green-500/30",
+      banned: "bg-red-500/20 text-red-400 border-red-500/30",
+      inactive: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    };
+    return variants[status] || variants.inactive;
   };
 
   return (
@@ -184,45 +198,59 @@ export default function AdminUsers() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border/30 hover:bg-transparent">
-                <TableHead className="text-muted-foreground">User</TableHead>
-                <TableHead className="text-muted-foreground">Role</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Plan</TableHead>
-                <TableHead className="text-muted-foreground">Joined</TableHead>
-                <TableHead className="text-muted-foreground w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((u) => (
-                <TableRow key={u.id} className="border-border/20 hover:bg-secondary/20">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground">{u.name.split(" ").map((n) => n[0]).join("")}</div>
-                      <div><div className="text-sm font-medium text-foreground">{u.name}</div><div className="text-xs text-muted-foreground">{u.email}</div></div>
-                    </div>
-                  </TableCell>
-                  <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${roleBadge(u.role)}`}>{u.role}</Badge></TableCell>
-                  <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${statusBadge(u.status)}`}>{u.status}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{u.plan}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{u.joined}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-card border-border/40">
-                        <DropdownMenuItem className="text-xs" onClick={() => { setRoleDialogUser(u); setNewRole(u.role); setRoleDialogOpen(true); }}><Shield className="w-3 h-3 mr-2" /> Change Role</DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs" onClick={() => sendEmail(u)}><Mail className="w-3 h-3 mr-2" /> Send Email</DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs" onClick={() => toggleBan(u)}><Ban className="w-3 h-3 mr-2" /> {u.status === "banned" ? "Unban" : "Ban"} User</DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs text-red-400" onClick={() => deleteUser(u)}><Trash2 className="w-3 h-3 mr-2" /> Delete User</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/30 hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">User</TableHead>
+                  <TableHead className="text-muted-foreground">Role</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Plan</TableHead>
+                  <TableHead className="text-muted-foreground">Joined</TableHead>
+                  <TableHead className="text-muted-foreground w-12"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No users found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((u) => (
+                    <TableRow key={u.id} className="border-border/20 hover:bg-secondary/20">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground">{u.name.split(" ").map((n) => n[0]).join("")}</div>
+                          <div><div className="text-sm font-medium text-foreground">{u.name}</div><div className="text-xs text-muted-foreground">{u.email}</div></div>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${roleBadge(u.role)}`}>{u.role}</Badge></TableCell>
+                      <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${statusBadge(u.status)}`}>{u.status}</Badge></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{u.plan}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{u.joined}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-card border-border/40">
+                            <DropdownMenuItem className="text-xs" onClick={() => { setRoleDialogUser(u); setNewRole(u.role); setRoleDialogOpen(true); }}><Shield className="w-3 h-3 mr-2" /> Change Role</DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs" onClick={() => sendEmail(u)}><Mail className="w-3 h-3 mr-2" /> Send Email</DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs" onClick={() => toggleBan(u)}><Ban className="w-3 h-3 mr-2" /> {u.status === "banned" ? "Unban" : "Ban"} User</DropdownMenuItem>
+                            <DropdownMenuItem className="text-xs text-red-400" onClick={() => deleteUser(u)}><Trash2 className="w-3 h-3 mr-2" /> Delete User</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

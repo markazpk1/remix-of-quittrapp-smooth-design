@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,78 +10,67 @@ import {
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Search, MoreHorizontal, Flag, Trash2, Eye, Ban, CheckCircle, MessageSquare, ThumbsUp, Users, AlertTriangle, Shield } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api";
 
 interface Post {
-  id: number; user: string; avatar: string; content: string; likes: number; comments: number; time: string; status: string; reported: boolean;
+  id: string; user: string; avatar: string; content: string; likes: number; comments: number; time: string; status: string; reported: boolean; userId: string;
 }
 interface Report {
-  id: number; postId: number; reporter: string; reason: string; status: string; time: string;
+  id: string; postId: string; reporter: string; reason: string; status: string; time: string;
 }
 
-const initialPosts: Post[] = [
-  { id: 1, user: "Marcus R.", avatar: "MR", content: "Just hit 90 days! 🎉 Never thought I'd make it this far.", likes: 284, comments: 42, time: "2h ago", status: "active", reported: false },
-  { id: 2, user: "Sarah T.", avatar: "ST", content: "Day 15 and going strong. The sound therapy really helps.", likes: 156, comments: 18, time: "4h ago", status: "active", reported: false },
-  { id: 3, user: "Anonymous", avatar: "AN", content: "Had a relapse after 30 days. Feeling down but starting over.", likes: 98, comments: 31, time: "6h ago", status: "active", reported: false },
-  { id: 4, user: "Jake M.", avatar: "JM", content: "The personalized plan feature is 🔥.", likes: 201, comments: 15, time: "8h ago", status: "active", reported: false },
-  { id: 5, user: "David L.", avatar: "DL", content: "[Flagged content - potentially harmful advice]", likes: 12, comments: 5, time: "12h ago", status: "flagged", reported: true },
-  { id: 6, user: "Chris K.", avatar: "CK", content: "Check out my website for guaranteed cure...", likes: 3, comments: 1, time: "1d ago", status: "flagged", reported: true },
-];
-
-const initialReports: Report[] = [
-  { id: 1, postId: 5, reporter: "Sarah T.", reason: "Harmful advice", status: "pending", time: "12h ago" },
-  { id: 2, postId: 6, reporter: "Marcus R.", reason: "Spam / Self-promotion", status: "pending", time: "1d ago" },
-  { id: 3, postId: 6, reporter: "Jake M.", reason: "Spam / Self-promotion", status: "pending", time: "1d ago" },
-  { id: 4, postId: 0, reporter: "Anonymous", reason: "Harassment", status: "resolved", time: "3d ago" },
-  { id: 5, postId: 0, reporter: "Leo M.", reason: "Inappropriate content", status: "resolved", time: "5d ago" },
-];
-
 export default function AdminCommunity() {
-  const [posts, setPosts] = useState(initialPosts);
-  const [reports, setReports] = useState(initialReports);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [bannedUsers, setBannedUsers] = useState<string[]>([]);
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
-  const filteredPosts = posts.filter((p) => p.user.toLowerCase().includes(search.toLowerCase()) || p.content.toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => {
+    fetchCommunityData();
+  }, []);
 
-  const deletePost = (id: number) => {
-    const post = posts.find((p) => p.id === id);
-    setConfirm({
-      open: true, title: "Delete this post?", description: `This will permanently remove the post by ${post?.user}.`,
-      onConfirm: () => { setPosts((prev) => prev.filter((p) => p.id !== id)); toast({ title: "Post Deleted", description: `Post by ${post?.user} has been removed.` }); },
-    });
+  const fetchCommunityData = async () => {
+    try {
+      setLoading(true);
+      const [postsRes, reportsRes, statsRes] = await Promise.all([
+        api.getCommunityPosts(),
+        api.getCommunityReports(),
+        api.getCommunityStats(),
+      ]);
+
+      setPosts(postsRes || []);
+      setReports(reportsRes || []);
+    } catch (error) {
+      console.error('Failed to fetch community data:', error);
+      toast({ title: "Error", description: "Failed to load community data" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const flagPost = (id: number) => {
-    setPosts((prev) => prev.map((p) => p.id === id ? { ...p, reported: true, status: "flagged" } : p));
-    toast({ title: "Post Flagged", description: "Post has been flagged for review." });
+  const filteredPosts = posts.filter((p) => p.user.toLowerCase().includes(search.toLowerCase()) || p.content.toLowerCase().includes(search.toLowerCase()));
+
+  const deletePost = (id: string) => {
+    const post = posts.find((p) => p.id === id);
+    toast({ title: "Not Implemented", description: "Post deletion coming soon" });
+  };
+
+  const flagPost = (id: string) => {
+    toast({ title: "Not Implemented", description: "Post flagging coming soon" });
   };
 
   const banUser = (username: string) => {
-    setConfirm({
-      open: true, title: `Ban ${username}?`, description: `This will ban ${username} and remove all their posts from the community.`,
-      onConfirm: () => {
-        setBannedUsers((prev) => [...prev, username]);
-        setPosts((prev) => prev.filter((p) => p.user !== username));
-        toast({ title: "User Banned", description: `${username} has been banned and their posts removed.` });
-      },
-    });
+    toast({ title: "Not Implemented", description: "User banning coming soon" });
   };
 
-  const resolveReport = (id: number) => {
-    setReports((prev) => prev.map((r) => r.id === id ? { ...r, status: "resolved" } : r));
-    toast({ title: "Report Resolved", description: "The report has been marked as resolved." });
+  const resolveReport = (id: string) => {
+    toast({ title: "Not Implemented", description: "Report resolution coming soon" });
   };
 
   const deleteReportedPost = (report: Report) => {
-    setConfirm({
-      open: true, title: "Delete reported post?", description: "This will remove the reported post and resolve the report.",
-      onConfirm: () => {
-        setReports((prev) => prev.map((r) => r.id === report.id ? { ...r, status: "resolved" } : r));
-        if (report.postId > 0) setPosts((prev) => prev.filter((p) => p.id !== report.postId));
-        toast({ title: "Post Removed", description: "The reported post has been deleted." });
-      },
-    });
+    toast({ title: "Not Implemented", description: "Reported post deletion coming soon" });
   };
 
   const pendingCount = reports.filter((r) => r.status === "pending").length;
@@ -96,20 +85,26 @@ export default function AdminCommunity() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total Posts", value: posts.length, icon: MessageSquare },
-          { label: "Active Users", value: "11,230", icon: Users },
-          { label: "Pending Reports", value: pendingCount, icon: AlertTriangle },
-          { label: "Banned Users", value: bannedUsers.length, icon: Shield },
-        ].map((st) => (
-          <Card key={st.label} className="bg-card/60 border-border/40">
-            <CardContent className="p-4">
-              <st.icon className="w-4 h-4 text-muted-foreground mb-2" />
-              <div className="text-xl font-bold font-display text-foreground">{st.value}</div>
-              <div className="text-[11px] text-muted-foreground">{st.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+          <div className="col-span-4 flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          [
+            { label: "Total Posts", value: posts.length, icon: MessageSquare },
+            { label: "Active Users", value: new Set(posts.map(p => p.userId)).size, icon: Users },
+            { label: "Pending Reports", value: pendingCount, icon: AlertTriangle },
+            { label: "Banned Users", value: bannedUsers.length, icon: Shield },
+          ].map((st) => (
+            <Card key={st.label} className="bg-card/60 border-border/40">
+              <CardContent className="p-4">
+                <st.icon className="w-4 h-4 text-muted-foreground mb-2" />
+                <div className="text-xl font-bold font-display text-foreground">{st.value}</div>
+                <div className="text-[11px] text-muted-foreground">{st.label}</div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <Tabs defaultValue="posts" className="space-y-4">
@@ -130,70 +125,93 @@ export default function AdminCommunity() {
           </div>
 
           <div className="space-y-3">
-            {filteredPosts.map((post) => (
-              <Card key={post.id} className={`bg-card/60 border-border/40 ${post.reported ? "border-red-500/30" : ""}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground shrink-0">{post.avatar}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-foreground">{post.user}</span>
-                          <span className="text-[11px] text-muted-foreground">{post.time}</span>
-                          {post.reported && <Badge variant="outline" className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30"><Flag className="w-2.5 h-2.5 mr-1" /> Reported</Badge>}
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : (
+              <>
+                {filteredPosts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No posts found.</p>
+                ) : (
+                  filteredPosts.map((post) => (
+                    <Card key={post.id} className={`bg-card/60 border-border/40 ${post.reported ? "border-red-500/30" : ""}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground shrink-0">{post.avatar}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-foreground">{post.user}</span>
+                                <span className="text-[11px] text-muted-foreground">{post.time}</span>
+                                {post.reported && <Badge variant="outline" className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30"><Flag className="w-2.5 h-2.5 mr-1" /> Reported</Badge>}
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{post.content}</p>
+                              <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
+                                <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" /> {post.likes}</span>
+                                <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {post.comments}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-card border-border/40">
+                              <DropdownMenuItem className="text-xs" onClick={() => flagPost(post.id)}><Flag className="w-3 h-3 mr-2" /> Flag Post</DropdownMenuItem>
+                              <DropdownMenuItem className="text-xs" onClick={() => banUser(post.user)}><Ban className="w-3 h-3 mr-2" /> Ban User</DropdownMenuItem>
+                              <DropdownMenuItem className="text-xs text-red-400" onClick={() => deletePost(post.id)}><Trash2 className="w-3 h-3 mr-2" /> Delete Post</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{post.content}</p>
-                        <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
-                          <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" /> {post.likes}</span>
-                          <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {post.comments}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-card border-border/40">
-                        <DropdownMenuItem className="text-xs" onClick={() => flagPost(post.id)}><Flag className="w-3 h-3 mr-2" /> Flag Post</DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs" onClick={() => banUser(post.user)}><Ban className="w-3 h-3 mr-2" /> Ban User</DropdownMenuItem>
-                        <DropdownMenuItem className="text-xs text-red-400" onClick={() => deletePost(post.id)}><Trash2 className="w-3 h-3 mr-2" /> Delete Post</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {filteredPosts.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No posts found.</p>}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </>
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-3">
-          {reports.map((report) => (
-            <Card key={report.id} className={`bg-card/60 border-border/40 ${report.status === "pending" ? "border-yellow-500/30" : ""}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${report.status === "pending" ? "bg-yellow-400" : "bg-green-400"}`} />
-                    <div>
-                      <div className="text-sm text-foreground"><span className="font-medium">{report.reporter}</span> reported: <span className="text-muted-foreground">{report.reason}</span></div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">{report.time}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={`text-[10px] capitalize ${report.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-green-500/20 text-green-400 border-green-500/30"}`}>{report.status}</Badge>
-                    {report.status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Dismiss" onClick={() => resolveReport(report.id)}>
-                          <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Remove post" onClick={() => deleteReportedPost(report)}>
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        </Button>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+            </div>
+          ) : (
+            <>
+              {reports.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No reports found.</p>
+              ) : (
+                reports.map((report) => (
+                  <Card key={report.id} className={`bg-card/60 border-border/40 ${report.status === "pending" ? "border-yellow-500/30" : ""}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${report.status === "pending" ? "bg-yellow-400" : "bg-green-400"}`} />
+                          <div>
+                            <div className="text-sm text-foreground"><span className="font-medium">{report.reporter}</span> reported: <span className="text-muted-foreground">{report.reason}</span></div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">{report.time}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`text-[10px] capitalize ${report.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-green-500/20 text-green-400 border-green-500/30"}`}>{report.status}</Badge>
+                          {report.status === "pending" && (
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Dismiss" onClick={() => resolveReport(report.id)}>
+                                <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Remove post" onClick={() => deleteReportedPost(report)}>
+                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>
