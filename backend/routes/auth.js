@@ -253,4 +253,63 @@ router.post('/admin/confirm-email', async (req, res) => {
   }
 });
 
+// Admin Add User
+router.post('/admin/add-user', async (req, res) => {
+  try {
+    const { name, email, role, plan } = req.body;
+
+    // Validation
+    if (!name || !email || !role || !plan) {
+      return res.status(400).json({ error: 'Name, email, role, and plan are required' });
+    }
+
+    // Generate a random password for the new user
+    const password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    
+    // Register user with Supabase
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: name,
+        role: role,
+        plan: plan,
+        created_by_admin: true,
+      },
+    });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Create user profile in profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        full_name: name,
+        email: email,
+        role: role,
+        plan: plan,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      // Don't fail the request if profile creation fails, just log it
+    }
+
+    res.status(201).json({ 
+      message: 'User created successfully',
+      user: data.user,
+      tempPassword: password, // Return temp password for admin to give to user
+    });
+  } catch (error) {
+    console.error('Admin add user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

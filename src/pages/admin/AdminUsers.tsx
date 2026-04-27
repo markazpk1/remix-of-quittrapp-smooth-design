@@ -113,9 +113,36 @@ export default function AdminUsers() {
     toast({ title: "Email Sent", description: `Notification email sent to ${user.email}.` });
   };
 
-  const addUser = () => {
-    toast({ title: "Not Implemented", description: "User creation via admin panel coming soon" });
-    setAddDialogOpen(false);
+  const addUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.role || !newUser.plan) {
+      toast({ title: "Error", description: "All fields are required" });
+      return;
+    }
+
+    try {
+      const response = await api.addUser(newUser);
+      
+      if (response.error) {
+        toast({ title: "Error", description: response.error });
+        return;
+      }
+
+      // Show success message with temporary password
+      toast({ 
+        title: "User Created Successfully", 
+        description: `User created with temporary password: ${response.tempPassword}` 
+      });
+
+      // Reset form and close dialog
+      setNewUser({ name: "", email: "", role: "user", plan: "Starter" });
+      setAddDialogOpen(false);
+      
+      // Refresh users list
+      await fetchUsers();
+    } catch (error) {
+      console.error('Add user error:', error);
+      toast({ title: "Error", description: "Failed to create user" });
+    }
   };
 
   const roleBadge = (role: string) => {

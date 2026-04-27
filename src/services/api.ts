@@ -246,6 +246,15 @@ export const api = {
     return response.json();
   },
 
+  addUser: async (userData: { name: string; email: string; role: string; plan: string }) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/admin/add-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    return response.json();
+  },
+
   // Roles endpoints
   getRoleStats: async () => {
     const response = await fetch(`${API_BASE_URL}/api/roles/stats`);
