@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,61 +12,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Pencil, Trash2, Plus, GripVertical, Star, Eye, Globe, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api";
 
-interface BlogPost { id: number; title: string; status: string; date: string; views: number; author: string; category: string; }
-interface FaqItem { id: number; question: string; answer: string; category: string; order: number; }
-interface Testimonial { id: number; name: string; quote: string; rating: number; status: string; featured: boolean; }
+interface BlogPost { id: string; title: string; status: string; date: string; views: number; author: string; category: string; }
+interface FaqItem { id: string; question: string; answer: string; category: string; order: number; }
+interface Testimonial { id: string; name: string; quote: string; rating: number; status: string; featured: boolean; }
 interface SeoPage { path: string; title: string; description: string; indexed: boolean; }
-
-const initialPosts: BlogPost[] = [
-  { id: 1, title: "Getting Started with QuittrApp", status: "published", date: "2025-12-01", views: 2340, author: "Sarah Chen", category: "Guide" },
-  { id: 2, title: "10 Tips for Staying on Track", status: "published", date: "2025-11-15", views: 1820, author: "Marcus R.", category: "Tips" },
-  { id: 3, title: "The Science Behind Dopamine Detox", status: "draft", date: "2025-11-28", views: 0, author: "Dr. James O.", category: "Science" },
-  { id: 4, title: "How Community Support Accelerates Recovery", status: "published", date: "2025-10-20", views: 3100, author: "Sarah Chen", category: "Research" },
-  { id: 5, title: "Understanding Brain Rewiring Timelines", status: "published", date: "2025-10-05", views: 4200, author: "Dr. James O.", category: "Science" },
-  { id: 6, title: "Building a Morning Routine for Recovery", status: "draft", date: "2025-09-30", views: 0, author: "Leo M.", category: "Tips" },
-];
-
-const initialFaqs: FaqItem[] = [
-  { id: 1, question: "How does the free trial work?", answer: "You get full access to all Pro features for 14 days.", category: "Billing", order: 1 },
-  { id: 2, question: "Can I cancel anytime?", answer: "Yes, you can cancel your subscription at any time.", category: "Billing", order: 2 },
-  { id: 3, question: "Do you offer refunds?", answer: "We offer a 30-day money-back guarantee.", category: "Billing", order: 3 },
-  { id: 4, question: "Is my data private?", answer: "We use end-to-end encryption and never share your data.", category: "Privacy", order: 4 },
-  { id: 5, question: "How does the AI Companion work?", answer: "Our AI uses CBT principles for personalized support.", category: "Features", order: 5 },
-  { id: 6, question: "Can I use QuittrApp anonymously?", answer: "Yes, no personal details required.", category: "Privacy", order: 6 },
-];
-
-const initialTestimonials: Testimonial[] = [
-  { id: 1, name: "Marcus R.", quote: "QuittrApp changed my life. 90 days clean!", rating: 5, status: "published", featured: true },
-  { id: 2, name: "Sarah T.", quote: "The sound therapy feature is incredibly calming.", rating: 5, status: "published", featured: true },
-  { id: 3, name: "Jake M.", quote: "Like having a therapist in your pocket.", rating: 4, status: "published", featured: false },
-  { id: 4, name: "Anonymous", quote: "Finally an app that understands.", rating: 5, status: "published", featured: true },
-  { id: 5, name: "David L.", quote: "Great community. Everyone is supportive.", rating: 4, status: "pending", featured: false },
-  { id: 6, name: "Emma W.", quote: "The recovery plan keeps me accountable.", rating: 5, status: "published", featured: false },
-];
-
-const initialSeo: SeoPage[] = [
-  { path: "/", title: "QuittrApp - Break Free From Addiction", description: "Science-backed recovery tools.", indexed: true },
-  { path: "/login", title: "Log In - QuittrApp", description: "Access your recovery dashboard.", indexed: true },
-  { path: "/register", title: "Start Free - QuittrApp", description: "Create your account.", indexed: true },
-  { path: "/blog", title: "Blog - QuittrApp", description: "Tips and stories about recovery.", indexed: true },
-  { path: "/privacy", title: "Privacy Policy - QuittrApp", description: "How we protect your data.", indexed: false },
-];
-
-const initialSections = [
-  { id: "hero", name: "Hero Section", enabled: true }, { id: "logos", name: "Logo Bar", enabled: true },
-  { id: "stats", name: "Stats", enabled: true }, { id: "how-it-works", name: "How It Works", enabled: true },
-  { id: "creators", name: "Creators", enabled: true }, { id: "testimonials", name: "Testimonials", enabled: true },
-  { id: "features", name: "Features Grid", enabled: true }, { id: "pricing", name: "Pricing", enabled: true },
-  { id: "faq", name: "FAQ", enabled: true }, { id: "cta", name: "Final CTA", enabled: true },
-];
+interface Section { id: string; name: string; enabled: boolean; }
 
 export default function AdminContent() {
-  const [sections, setSections] = useState(initialSections);
-  const [posts, setPosts] = useState(initialPosts);
-  const [faqs, setFaqs] = useState(initialFaqs);
-  const [testimonials, setTestimonials] = useState(initialTestimonials);
-  const [seoPages, setSeoPages] = useState(initialSeo);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [faqs, setFaqs] = useState<FaqItem[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [seoPages, setSeoPages] = useState<SeoPage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [blogSearch, setBlogSearch] = useState("");
   const [addPostOpen, setAddPostOpen] = useState(false);
   const [addFaqOpen, setAddFaqOpen] = useState(false);
@@ -76,64 +36,91 @@ export default function AdminContent() {
   const [testimonialForm, setTestimonialForm] = useState({ name: "", quote: "", rating: 5 });
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
+  useEffect(() => {
+    fetchContentData();
+  }, []);
+
+  const fetchContentData = async () => {
+    try {
+      setLoading(true);
+      const [sectionsRes, postsRes, faqsRes, testimonialsRes, seoRes] = await Promise.all([
+        api.getContentSections(),
+        api.getBlogPosts(),
+        api.getFaqs(),
+        api.getTestimonials(),
+        api.getSeoPages(),
+      ]);
+
+      setSections(Array.isArray(sectionsRes) ? sectionsRes : []);
+      setPosts(Array.isArray(postsRes) ? postsRes : []);
+      setFaqs(Array.isArray(faqsRes) ? faqsRes : []);
+      setTestimonials(Array.isArray(testimonialsRes) ? testimonialsRes : []);
+      setSeoPages(Array.isArray(seoRes) ? seoRes : []);
+    } catch (error) {
+      console.error('Failed to fetch content data:', error);
+      toast({ title: "Error", description: "Failed to load content data" });
+      // Set empty arrays to prevent filter errors
+      setSections([]);
+      setPosts([]);
+      setFaqs([]);
+      setTestimonials([]);
+      setSeoPages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleSection = (id: string) => {
-    setSections((prev) => prev.map((s) => s.id === id ? { ...s, enabled: !s.enabled } : s));
-    toast({ title: "Section Updated" });
+    toast({ title: "Not Implemented", description: "Section toggle coming soon" });
   };
 
   const filteredPosts = posts.filter((p) => p.title.toLowerCase().includes(blogSearch.toLowerCase()) || p.category.toLowerCase().includes(blogSearch.toLowerCase()));
 
   const addPost = () => {
-    if (!postForm.title) return;
-    const id = Math.max(...posts.map((p) => p.id)) + 1;
-    setPosts((prev) => [{ id, ...postForm, status: "draft", date: new Date().toISOString().split("T")[0], views: 0 }, ...prev]);
-    toast({ title: "Post Created", description: `"${postForm.title}" saved as draft.` });
+    toast({ title: "Not Implemented", description: "Blog post creation coming soon" });
     setAddPostOpen(false);
     setPostForm({ title: "", category: "Guide", author: "" });
   };
 
-  const publishPost = (id: number) => {
-    setPosts((prev) => prev.map((p) => p.id === id ? { ...p, status: p.status === "published" ? "draft" : "published" } : p));
-    toast({ title: "Status Updated" });
+  const publishPost = (id: string) => {
+    toast({ title: "Not Implemented", description: "Blog post publishing coming soon" });
   };
 
-  const deletePost = (id: number) => {
-    const post = posts.find((p) => p.id === id);
-    setConfirm({ open: true, title: `Delete "${post?.title}"?`, description: "This blog post will be permanently removed.", onConfirm: () => { setPosts((prev) => prev.filter((p) => p.id !== id)); toast({ title: "Post Deleted" }); } });
+  const deletePost = (id: string) => {
+    toast({ title: "Not Implemented", description: "Blog post deletion coming soon" });
   };
 
   const addFaq = () => {
-    if (!faqForm.question) return;
-    const id = Math.max(...faqs.map((f) => f.id)) + 1;
-    setFaqs((prev) => [...prev, { id, ...faqForm, order: prev.length + 1 }]);
-    toast({ title: "FAQ Added" });
+    toast({ title: "Not Implemented", description: "FAQ creation coming soon" });
     setAddFaqOpen(false);
     setFaqForm({ question: "", answer: "", category: "Billing" });
   };
 
-  const deleteFaq = (id: number) => {
-    const faq = faqs.find((f) => f.id === id);
-    setConfirm({ open: true, title: "Delete this FAQ?", description: `"${faq?.question}" will be permanently removed.`, onConfirm: () => { setFaqs((prev) => prev.filter((f) => f.id !== id)); toast({ title: "FAQ Deleted" }); } });
+  const deleteFaq = (id: string) => {
+    toast({ title: "Not Implemented", description: "FAQ deletion coming soon" });
   };
 
   const addTestimonial = () => {
-    if (!testimonialForm.name) return;
-    const id = Math.max(...testimonials.map((t) => t.id)) + 1;
-    setTestimonials((prev) => [...prev, { id, ...testimonialForm, status: "pending", featured: false }]);
-    toast({ title: "Testimonial Added" });
+    toast({ title: "Not Implemented", description: "Testimonial creation coming soon" });
     setAddTestimonialOpen(false);
     setTestimonialForm({ name: "", quote: "", rating: 5 });
   };
 
-  const toggleFeatured = (id: number) => { setTestimonials((prev) => prev.map((t) => t.id === id ? { ...t, featured: !t.featured } : t)); toast({ title: "Updated" }); };
-  const approveTestimonial = (id: number) => { setTestimonials((prev) => prev.map((t) => t.id === id ? { ...t, status: "published" } : t)); toast({ title: "Testimonial Approved" }); };
-
-  const deleteTestimonial = (id: number) => {
-    const t = testimonials.find((x) => x.id === id);
-    setConfirm({ open: true, title: "Delete this testimonial?", description: `Testimonial by "${t?.name}" will be permanently removed.`, onConfirm: () => { setTestimonials((prev) => prev.filter((x) => x.id !== id)); toast({ title: "Testimonial Deleted" }); } });
+  const toggleFeatured = (id: string) => { 
+    toast({ title: "Not Implemented", description: "Testimonial feature toggle coming soon" });
+  };
+  
+  const approveTestimonial = (id: string) => { 
+    toast({ title: "Not Implemented", description: "Testimonial approval coming soon" });
   };
 
-  const toggleIndexed = (path: string) => { setSeoPages((prev) => prev.map((p) => p.path === path ? { ...p, indexed: !p.indexed } : p)); toast({ title: "SEO Updated" }); };
+  const deleteTestimonial = (id: string) => {
+    toast({ title: "Not Implemented", description: "Testimonial deletion coming soon" });
+  };
+
+  const toggleIndexed = (path: string) => { 
+    toast({ title: "Not Implemented", description: "SEO settings update coming soon" });
+  };
 
   return (
     <div className="space-y-6">
@@ -150,12 +137,22 @@ export default function AdminContent() {
           <Card className="bg-card/60 border-border/40">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-foreground">Page Sections</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {sections.map((s) => (
-                <div key={s.id} className="flex items-center justify-between py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
-                  <div className="flex items-center gap-3"><GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab" /><span className="text-sm text-foreground">{s.name}</span></div>
-                  <Switch checked={s.enabled} onCheckedChange={() => toggleSection(s.id)} />
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
                 </div>
-              ))}
+              ) : sections.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  No sections found
+                </div>
+              ) : (
+                sections.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
+                    <div className="flex items-center gap-3"><GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab" /><span className="text-sm text-foreground">{s.name}</span></div>
+                    <Switch checked={s.enabled} onCheckedChange={() => toggleSection(s.id)} />
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -186,24 +183,34 @@ export default function AdminContent() {
           <Card className="bg-card/60 border-border/40">
             <CardContent className="p-0">
               <div className="divide-y divide-border/20">
-                {filteredPosts.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground">{p.title}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground border-border/30">{p.category}</Badge>
-                        <span className="text-xs text-muted-foreground">by {p.author}</span>
-                        <span className="text-xs text-muted-foreground">· {p.date}</span>
-                        {p.views > 0 && <span className="text-xs text-muted-foreground">· <Eye className="w-3 h-3 inline" /> {p.views.toLocaleString()}</span>}
+                {loading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                  </div>
+                ) : filteredPosts.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No blog posts found
+                  </div>
+                ) : (
+                  filteredPosts.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between p-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-foreground">{p.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground border-border/30">{p.category}</Badge>
+                          <span className="text-xs text-muted-foreground">by {p.author}</span>
+                          <span className="text-xs text-muted-foreground">· {p.date}</span>
+                          {p.views > 0 && <span className="text-xs text-muted-foreground">· <Eye className="w-3 h-3 inline" /> {p.views.toLocaleString()}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className={`text-[10px] capitalize ${p.status === "published" ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}>{p.status}</Badge>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => publishPost(p.id)}><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deletePost(p.id)}><Trash2 className="w-3.5 h-3.5 text-red-400" /></Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline" className={`text-[10px] capitalize ${p.status === "published" ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}>{p.status}</Badge>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => publishPost(p.id)}><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deletePost(p.id)}><Trash2 className="w-3.5 h-3.5 text-red-400" /></Button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -225,23 +232,33 @@ export default function AdminContent() {
             </Dialog>
           </div>
           <div className="space-y-3">
-            {faqs.map((f) => (
-              <Card key={f.id} className="bg-card/60 border-border/40">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab mt-0.5 shrink-0" />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-foreground mb-1">{f.question}</div>
-                        <div className="text-xs text-muted-foreground">{f.answer}</div>
-                        <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground border-border/30 mt-2">{f.category}</Badge>
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : faqs.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No FAQs found
+              </div>
+            ) : (
+              faqs.map((f) => (
+                <Card key={f.id} className="bg-card/60 border-border/40">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-foreground mb-1">{f.question}</div>
+                          <div className="text-xs text-muted-foreground">{f.answer}</div>
+                          <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground border-border/30 mt-2">{f.category}</Badge>
+                        </div>
                       </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteFaq(f.id)}><Trash2 className="w-3.5 h-3.5 text-red-400" /></Button>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteFaq(f.id)}><Trash2 className="w-3.5 h-3.5 text-red-400" /></Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </TabsContent>
 
@@ -260,31 +277,41 @@ export default function AdminContent() {
             </Dialog>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {testimonials.map((t) => (
-              <Card key={t.id} className={`bg-card/60 border-border/40 ${t.featured ? "ring-1 ring-primary/20" : ""}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground">{t.name.split(" ").map((n) => n[0]).join("")}</div>
-                      <div>
-                        <div className="text-sm font-medium text-foreground">{t.name}</div>
-                        <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={`w-3 h-3 ${i < t.rating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/30"}`} />))}</div>
+            {loading ? (
+              <div className="col-span-2 flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : testimonials.length === 0 ? (
+              <div className="col-span-2 text-center text-muted-foreground py-8">
+                No testimonials found
+              </div>
+            ) : (
+              testimonials.map((t) => (
+                <Card key={t.id} className={`bg-card/60 border-border/40 ${t.featured ? "ring-1 ring-primary/20" : ""}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground">{t.name.split(" ").map((n) => n[0]).join("")}</div>
+                        <div>
+                          <div className="text-sm font-medium text-foreground">{t.name}</div>
+                          <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={`w-3 h-3 ${i < t.rating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground/30"}`} />))}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {t.featured && <Badge variant="outline" className="text-[9px] bg-primary/20 text-primary border-primary/30">Featured</Badge>}
+                        <Badge variant="outline" className={`text-[10px] capitalize ${t.status === "published" ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}>{t.status}</Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {t.featured && <Badge variant="outline" className="text-[9px] bg-primary/20 text-primary border-primary/30">Featured</Badge>}
-                      <Badge variant="outline" className={`text-[10px] capitalize ${t.status === "published" ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}>{t.status}</Badge>
+                    <p className="text-xs text-muted-foreground italic">"{t.quote}"</p>
+                    <div className="flex gap-1 mt-3 justify-end">
+                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleFeatured(t.id)}><Star className="w-3 h-3 mr-1" /> {t.featured ? "Unfeature" : "Feature"}</Button>
+                      {t.status === "pending" && <Button variant="ghost" size="sm" className="text-xs h-7 text-green-400" onClick={() => approveTestimonial(t.id)}>Approve</Button>}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteTestimonial(t.id)}><Trash2 className="w-3 h-3 text-red-400" /></Button>
                     </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">"{t.quote}"</p>
-                  <div className="flex gap-1 mt-3 justify-end">
-                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleFeatured(t.id)}><Star className="w-3 h-3 mr-1" /> {t.featured ? "Unfeature" : "Feature"}</Button>
-                    {t.status === "pending" && <Button variant="ghost" size="sm" className="text-xs h-7 text-green-400" onClick={() => approveTestimonial(t.id)}>Approve</Button>}
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteTestimonial(t.id)}><Trash2 className="w-3 h-3 text-red-400" /></Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </TabsContent>
 
@@ -292,19 +319,29 @@ export default function AdminContent() {
           <Card className="bg-card/60 border-border/40">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-foreground">Page SEO Settings</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {seoPages.map((page) => (
-                <div key={page.path} className="py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2"><Globe className="w-3.5 h-3.5 text-muted-foreground" /><code className="text-xs text-primary font-mono">{page.path}</code></div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground">Indexed</span>
-                      <Switch checked={page.indexed} onCheckedChange={() => toggleIndexed(page.path)} />
-                    </div>
-                  </div>
-                  <div className="text-sm text-foreground font-medium">{page.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{page.description}</div>
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
                 </div>
-              ))}
+              ) : seoPages.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  No SEO pages found
+                </div>
+              ) : (
+                seoPages.map((page) => (
+                  <div key={page.path} className="py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2"><Globe className="w-3.5 h-3.5 text-muted-foreground" /><code className="text-xs text-primary font-mono">{page.path}</code></div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">Indexed</span>
+                        <Switch checked={page.indexed} onCheckedChange={() => toggleIndexed(page.path)} />
+                      </div>
+                    </div>
+                    <div className="text-sm text-foreground font-medium">{page.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{page.description}</div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border/40">

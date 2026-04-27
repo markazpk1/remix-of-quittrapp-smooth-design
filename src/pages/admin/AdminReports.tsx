@@ -1,68 +1,87 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Download, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api";
 
-const userGrowth = [
-  { month: "Jul", users: 1200, active: 980 },
-  { month: "Aug", users: 1800, active: 1400 },
-  { month: "Sep", users: 2600, active: 2100 },
-  { month: "Oct", users: 3400, active: 2800 },
-  { month: "Nov", users: 4800, active: 3900 },
-  { month: "Dec", users: 6200, active: 5100 },
-  { month: "Jan", users: 8100, active: 6800 },
-  { month: "Feb", users: 10400, active: 8700 },
-];
+interface KpiData {
+  label: string; value: string; change: string; up: boolean;
+}
 
-const revenueData = [
-  { month: "Jul", revenue: 4200, costs: 1800 },
-  { month: "Aug", revenue: 6800, costs: 2100 },
-  { month: "Sep", revenue: 9400, costs: 2600 },
-  { month: "Oct", revenue: 12800, costs: 3200 },
-  { month: "Nov", revenue: 16200, costs: 3800 },
-  { month: "Dec", revenue: 19800, costs: 4100 },
-  { month: "Jan", revenue: 24600, costs: 4800 },
-  { month: "Feb", revenue: 29400, costs: 5200 },
-];
+interface UserGrowthData {
+  month: string; users: number; active: number;
+}
 
-const retentionData = [
-  { day: "Day 1", rate: 100 },
-  { day: "Day 3", rate: 72 },
-  { day: "Day 7", rate: 58 },
-  { day: "Day 14", rate: 44 },
-  { day: "Day 30", rate: 36 },
-  { day: "Day 60", rate: 28 },
-  { day: "Day 90", rate: 22 },
-];
+interface RevenueData {
+  month: string; revenue: number; costs: number;
+}
 
-const planDistribution = [
-  { name: "Free", value: 4200, color: "hsl(var(--muted-foreground))" },
-  { name: "Starter", value: 3100, color: "hsl(210, 80%, 55%)" },
-  { name: "Pro", value: 2400, color: "hsl(var(--primary))" },
-  { name: "Enterprise", value: 700, color: "hsl(150, 60%, 45%)" },
-];
+interface RetentionData {
+  day: string; rate: number;
+}
 
-const featureUsage = [
-  { feature: "Panic Button", usage: 89 },
-  { feature: "Lessons", usage: 76 },
-  { feature: "Community", usage: 72 },
-  { feature: "Sound Therapy", usage: 65 },
-  { feature: "AI Companion", usage: 58 },
-  { feature: "Progress", usage: 52 },
-];
+interface PlanData {
+  name: string; value: number; color: string;
+}
 
-const kpis = [
-  { label: "MRR", value: "$29,400", change: "+19.5%", up: true },
-  { label: "DAU / MAU", value: "42.3%", change: "+3.1%", up: true },
-  { label: "Churn Rate", value: "4.2%", change: "-0.8%", up: false },
-  { label: "ARPU", value: "$12.40", change: "+$1.20", up: true },
-  { label: "LTV", value: "$148", change: "+$12", up: true },
-  { label: "CAC", value: "$18.50", change: "-$2.30", up: false },
-];
+interface FeatureData {
+  feature: string; usage: number;
+}
 
 export default function AdminReports() {
+  const [loading, setLoading] = useState(true);
+  const [kpis, setKpis] = useState<KpiData[]>([]);
+  const [userGrowth, setUserGrowth] = useState<UserGrowthData[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
+  const [retentionData, setRetentionData] = useState<RetentionData[]>([]);
+  const [planDistribution, setPlanDistribution] = useState<PlanData[]>([]);
+  const [featureUsage, setFeatureUsage] = useState<FeatureData[]>([]);
+
+  useEffect(() => {
+    fetchReportsData();
+  }, []);
+
+  const fetchReportsData = async () => {
+    try {
+      setLoading(true);
+      const [kpisRes, userGrowthRes, revenueRes, retentionRes, planRes, featureRes] = await Promise.all([
+        api.getKpis(),
+        api.getReportsUserGrowth(),
+        api.getRevenue(),
+        api.getRetention(),
+        api.getPlanDistribution(),
+        api.getFeatureUsage(),
+      ]);
+
+      setKpis(Array.isArray(kpisRes) ? kpisRes : []);
+      setUserGrowth(Array.isArray(userGrowthRes) ? userGrowthRes : []);
+      setRevenueData(Array.isArray(revenueRes) ? revenueRes : []);
+      setRetentionData(Array.isArray(retentionRes) ? retentionRes : []);
+      setPlanDistribution(Array.isArray(planRes) ? planRes : []);
+      setFeatureUsage(Array.isArray(featureRes) ? featureRes : []);
+    } catch (error) {
+      console.error('Failed to fetch reports data:', error);
+      toast({ title: "Error", description: "Failed to load reports data" });
+      // Set empty arrays to prevent chart errors
+      setKpis([]);
+      setUserGrowth([]);
+      setRevenueData([]);
+      setRetentionData([]);
+      setPlanDistribution([]);
+      setFeatureUsage([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    toast({ title: "Not Implemented", description: "Report export coming soon" });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -83,7 +102,7 @@ export default function AdminReports() {
               <SelectItem value="1y">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" className="border-border/30 text-sm">
+          <Button variant="outline" className="border-border/30 text-sm" onClick={handleExport}>
             <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
         </div>
@@ -91,18 +110,24 @@ export default function AdminReports() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {kpis.map((kpi) => (
-          <Card key={kpi.label} className="bg-card/60 border-border/40">
-            <CardContent className="p-4">
-              <div className="text-xs text-muted-foreground mb-1">{kpi.label}</div>
-              <div className="text-lg font-bold text-foreground">{kpi.value}</div>
-              <div className={`flex items-center gap-1 text-xs mt-1 ${kpi.up ? (kpi.label === "Churn Rate" || kpi.label === "CAC" ? "text-green-400" : "text-green-400") : (kpi.label === "Churn Rate" || kpi.label === "CAC" ? "text-green-400" : "text-red-400")}`}>
-                {kpi.up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {kpi.change}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+          <div className="col-span-6 flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          kpis.map((kpi) => (
+            <Card key={kpi.label} className="bg-card/60 border-border/40">
+              <CardContent className="p-4">
+                <div className="text-xs text-muted-foreground mb-1">{kpi.label}</div>
+                <div className="text-lg font-bold text-foreground">{kpi.value}</div>
+                <div className={`flex items-center gap-1 text-xs mt-1 ${kpi.up ? (kpi.label === "Churn Rate" || kpi.label === "CAC" ? "text-green-400" : "text-green-400") : (kpi.label === "Churn Rate" || kpi.label === "CAC" ? "text-green-400" : "text-red-400")}`}>
+                  {kpi.up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  {kpi.change}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Charts Row 1 */}
@@ -112,16 +137,26 @@ export default function AdminReports() {
             <CardTitle className="text-sm font-medium text-foreground">User Growth</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={userGrowth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                <Area type="monotone" dataKey="users" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.15} strokeWidth={2} name="Total Users" />
-                <Area type="monotone" dataKey="active" stroke="hsl(150, 60%, 45%)" fill="hsl(150, 60%, 45%)" fillOpacity={0.1} strokeWidth={2} name="Active Users" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[260px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : userGrowth.length === 0 ? (
+              <div className="flex items-center justify-center h-[260px] text-muted-foreground">
+                No user growth data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={userGrowth}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                  <Area type="monotone" dataKey="users" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.15} strokeWidth={2} name="Total Users" />
+                  <Area type="monotone" dataKey="active" stroke="hsl(150, 60%, 45%)" fill="hsl(150, 60%, 45%)" fillOpacity={0.1} strokeWidth={2} name="Active Users" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -130,16 +165,26 @@ export default function AdminReports() {
             <CardTitle className="text-sm font-medium text-foreground">Revenue vs Costs</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickFormatter={(v) => `$${v / 1000}k`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `$${v.toLocaleString()}`} />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Revenue" />
-                <Bar dataKey="costs" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.5} name="Costs" />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[260px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : revenueData.length === 0 ? (
+              <div className="flex items-center justify-center h-[260px] text-muted-foreground">
+                No revenue data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickFormatter={(v) => `$${v / 1000}k`} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `$${v.toLocaleString()}`} />
+                  <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Revenue" />
+                  <Bar dataKey="costs" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.5} name="Costs" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -151,15 +196,25 @@ export default function AdminReports() {
             <CardTitle className="text-sm font-medium text-foreground">Retention Curve</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={retentionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `${v}%`} />
-                <Line type="monotone" dataKey="rate" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[220px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : retentionData.length === 0 ? (
+              <div className="flex items-center justify-center h-[220px] text-muted-foreground">
+                No retention data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={retentionData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `${v}%`} />
+                  <Line type="monotone" dataKey="rate" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -168,17 +223,27 @@ export default function AdminReports() {
             <CardTitle className="text-sm font-medium text-foreground">Plan Distribution</CardTitle>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={planDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
-                  {planDistribution.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[220px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : planDistribution.length === 0 ? (
+              <div className="flex items-center justify-center h-[220px] text-muted-foreground">
+                No plan data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={planDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
+                    {planDistribution.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -187,19 +252,29 @@ export default function AdminReports() {
             <CardTitle className="text-sm font-medium text-foreground">Feature Usage %</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 mt-2">
-              {featureUsage.map((f) => (
-                <div key={f.feature}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">{f.feature}</span>
-                    <span className="text-foreground font-medium">{f.usage}%</span>
+            {loading ? (
+              <div className="flex items-center justify-center h-[220px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : featureUsage.length === 0 ? (
+              <div className="flex items-center justify-center h-[220px] text-muted-foreground">
+                No feature usage data available
+              </div>
+            ) : (
+              <div className="space-y-3 mt-2">
+                {featureUsage.map((f) => (
+                  <div key={f.feature}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">{f.feature}</span>
+                      <span className="text-foreground font-medium">{f.usage}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-secondary/60 overflow-hidden">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${f.usage}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 rounded-full bg-secondary/60 overflow-hidden">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${f.usage}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

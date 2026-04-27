@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   Copy, Eye, Ban, CheckCircle, Download, Send, Award, ArrowUpRight, Link2, BarChart3,
   CreditCard, Clock, XCircle, RefreshCw
 } from "lucide-react";
+import { api } from "@/services/api";
 
 interface Affiliate {
   id: string;
@@ -68,43 +69,25 @@ interface TierConfig {
   color: string;
 }
 
-const initialAffiliates: Affiliate[] = [
-  { id: "1", name: "Alex Johnson", email: "alex@blog.com", code: "ALEX25", tier: "gold", status: "active", commissionRate: 25, totalClicks: 4520, totalSignups: 312, totalConversions: 89, totalEarned: 2225, totalPaid: 1800, pendingBalance: 425, joinedAt: "2025-06-15", lastActiveAt: "2026-02-28", payoutMethod: "PayPal", website: "alexblog.com" },
-  { id: "2", name: "Maria Garcia", email: "maria@wellness.co", code: "MARIA20", tier: "silver", status: "active", commissionRate: 20, totalClicks: 2180, totalSignups: 156, totalConversions: 43, totalEarned: 860, totalPaid: 700, pendingBalance: 160, joinedAt: "2025-09-01", lastActiveAt: "2026-02-27", payoutMethod: "Bank Transfer", website: "wellnessco.com" },
-  { id: "3", name: "James Lee", email: "james@youtube.com", code: "JAMES30", tier: "platinum", status: "active", commissionRate: 30, totalClicks: 12400, totalSignups: 890, totalConversions: 234, totalEarned: 7020, totalPaid: 6500, pendingBalance: 520, joinedAt: "2025-03-10", lastActiveAt: "2026-03-01", payoutMethod: "PayPal", website: "youtube.com/@james" },
-  { id: "4", name: "Sophie Chen", email: "sophie@insta.com", code: "SOPHIE15", tier: "bronze", status: "pending", commissionRate: 15, totalClicks: 0, totalSignups: 0, totalConversions: 0, totalEarned: 0, totalPaid: 0, pendingBalance: 0, joinedAt: "2026-02-28", lastActiveAt: "2026-02-28", payoutMethod: "PayPal" },
-  { id: "5", name: "Tom Wilson", email: "tom@blog.net", code: "TOM20", tier: "silver", status: "suspended", commissionRate: 20, totalClicks: 890, totalSignups: 45, totalConversions: 12, totalEarned: 240, totalPaid: 240, pendingBalance: 0, joinedAt: "2025-11-20", lastActiveAt: "2026-01-15", payoutMethod: "Bank Transfer" },
-];
-
-const initialPayouts: Payout[] = [
-  { id: "p1", affiliateId: "1", affiliateName: "Alex Johnson", amount: 425, status: "pending", method: "PayPal", requestedAt: "2026-02-28" },
-  { id: "p2", affiliateId: "3", affiliateName: "James Lee", amount: 520, status: "pending", method: "PayPal", requestedAt: "2026-02-27" },
-  { id: "p3", affiliateId: "2", affiliateName: "Maria Garcia", amount: 160, status: "processing", method: "Bank Transfer", requestedAt: "2026-02-25" },
-  { id: "p4", affiliateId: "1", affiliateName: "Alex Johnson", amount: 600, status: "paid", method: "PayPal", requestedAt: "2026-02-10", processedAt: "2026-02-12" },
-  { id: "p5", affiliateId: "3", affiliateName: "James Lee", amount: 1200, status: "paid", method: "PayPal", requestedAt: "2026-02-01", processedAt: "2026-02-03" },
-];
-
-const initialReferrals: Referral[] = [
-  { id: "r1", affiliateId: "3", affiliateName: "James Lee", referredUser: "user_9281", type: "conversion", commission: 30, createdAt: "2026-03-01", status: "approved" },
-  { id: "r2", affiliateId: "1", affiliateName: "Alex Johnson", referredUser: "user_9280", type: "signup", commission: 0, createdAt: "2026-03-01", status: "pending" },
-  { id: "r3", affiliateId: "2", affiliateName: "Maria Garcia", referredUser: "user_9279", type: "conversion", commission: 20, createdAt: "2026-02-28", status: "approved" },
-  { id: "r4", affiliateId: "3", affiliateName: "James Lee", referredUser: "user_9278", type: "click", commission: 0, createdAt: "2026-02-28", status: "approved" },
-  { id: "r5", affiliateId: "1", affiliateName: "Alex Johnson", referredUser: "user_9277", type: "conversion", commission: 25, createdAt: "2026-02-27", status: "rejected" },
-];
-
-const tierConfigs: TierConfig[] = [
-  { name: "Bronze", minConversions: 0, commissionRate: 15, bonus: 0, color: "text-orange-400" },
-  { name: "Silver", minConversions: 25, commissionRate: 20, bonus: 50, color: "text-gray-400" },
-  { name: "Gold", minConversions: 75, commissionRate: 25, bonus: 150, color: "text-yellow-400" },
-  { name: "Platinum", minConversions: 200, commissionRate: 30, bonus: 500, color: "text-cyan-400" },
-];
+interface AffiliateStats {
+  total: number;
+  active: number;
+  totalRevenue: number;
+  pendingPayouts: number;
+  totalClicks: number;
+  totalConversions: number;
+}
 
 export default function AdminAffiliates() {
   const { toast } = useToast();
-  const [affiliates, setAffiliates] = useState(initialAffiliates);
-  const [payouts, setPayouts] = useState(initialPayouts);
-  const [referrals, setReferrals] = useState(initialReferrals);
-  const [tiers, setTiers] = useState(tierConfigs);
+  const [loading, setLoading] = useState(true);
+  const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [tiers, setTiers] = useState<TierConfig[]>([]);
+  const [stats, setStats] = useState<AffiliateStats>({
+    total: 0, active: 0, totalRevenue: 0, pendingPayouts: 0, totalClicks: 0, totalConversions: 0,
+  });
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTier, setFilterTier] = useState("all");
@@ -130,6 +113,40 @@ export default function AdminAffiliates() {
   const [tierFormMin, setTierFormMin] = useState("");
   const [tierFormBonus, setTierFormBonus] = useState("");
 
+  useEffect(() => {
+    fetchAffiliateData();
+  }, []);
+
+  const fetchAffiliateData = async () => {
+    try {
+      setLoading(true);
+      const [affiliatesRes, statsRes, payoutsRes, referralsRes, tiersRes] = await Promise.all([
+        api.getAffiliates(),
+        api.getAffiliateStats(),
+        api.getAffiliatePayouts(),
+        api.getAffiliateReferrals(),
+        api.getAffiliateTiers(),
+      ]);
+
+      setAffiliates(Array.isArray(affiliatesRes) ? affiliatesRes : []);
+      setStats(statsRes || { total: 0, active: 0, totalRevenue: 0, pendingPayouts: 0, totalClicks: 0, totalConversions: 0 });
+      setPayouts(Array.isArray(payoutsRes) ? payoutsRes : []);
+      setReferrals(Array.isArray(referralsRes) ? referralsRes : []);
+      setTiers(Array.isArray(tiersRes) ? tiersRes : []);
+    } catch (error) {
+      console.error('Failed to fetch affiliate data:', error);
+      toast({ title: "Error", description: "Failed to load affiliate data" });
+      // Set empty arrays to prevent filter errors
+      setAffiliates([]);
+      setStats({ total: 0, active: 0, totalRevenue: 0, pendingPayouts: 0, totalClicks: 0, totalConversions: 0 });
+      setPayouts([]);
+      setReferrals([]);
+      setTiers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filtered = affiliates.filter(a => {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.email.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || a.status === filterStatus;
@@ -137,104 +154,62 @@ export default function AdminAffiliates() {
     return matchSearch && matchStatus && matchTier;
   });
 
-  const stats = {
-    total: affiliates.length,
-    active: affiliates.filter(a => a.status === "active").length,
-    totalRevenue: affiliates.reduce((s, a) => s + a.totalEarned, 0),
-    pendingPayouts: payouts.filter(p => p.status === "pending" || p.status === "processing").reduce((s, p) => s + p.amount, 0),
-    totalClicks: affiliates.reduce((s, a) => s + a.totalClicks, 0),
-    totalConversions: affiliates.reduce((s, a) => s + a.totalConversions, 0),
-  };
-
   const openAdd = () => {
-    setEditingAffiliate(null);
-    setFormName(""); setFormEmail(""); setFormCode(""); setFormTier("bronze"); setFormRate("15"); setFormPayoutMethod("PayPal"); setFormWebsite("");
-    setShowAffiliateDialog(true);
+    toast({ title: "Not Implemented", description: "Affiliate creation coming soon" });
   };
 
   const openEdit = (a: Affiliate) => {
-    setEditingAffiliate(a);
-    setFormName(a.name); setFormEmail(a.email); setFormCode(a.code); setFormTier(a.tier); setFormRate(String(a.commissionRate)); setFormPayoutMethod(a.payoutMethod); setFormWebsite(a.website || "");
-    setShowAffiliateDialog(true);
+    toast({ title: "Not Implemented", description: "Affiliate editing coming soon" });
   };
 
   const saveAffiliate = () => {
-    if (!formName || !formEmail || !formCode) { toast({ title: "Missing fields", variant: "destructive" }); return; }
-    if (editingAffiliate) {
-      setAffiliates(prev => prev.map(a => a.id === editingAffiliate.id ? { ...a, name: formName, email: formEmail, code: formCode, tier: formTier, commissionRate: Number(formRate), payoutMethod: formPayoutMethod, website: formWebsite || undefined } : a));
-      toast({ title: "Affiliate updated" });
-    } else {
-      const newA: Affiliate = { id: Date.now().toString(), name: formName, email: formEmail, code: formCode, tier: formTier, status: "pending", commissionRate: Number(formRate), totalClicks: 0, totalSignups: 0, totalConversions: 0, totalEarned: 0, totalPaid: 0, pendingBalance: 0, joinedAt: new Date().toISOString().split("T")[0], lastActiveAt: new Date().toISOString().split("T")[0], payoutMethod: formPayoutMethod, website: formWebsite || undefined };
-      setAffiliates(prev => [...prev, newA]);
-      toast({ title: "Affiliate added" });
-    }
+    toast({ title: "Not Implemented", description: "Affiliate save coming soon" });
     setShowAffiliateDialog(false);
   };
 
-  const deleteAffiliate = (a: Affiliate) => setConfirm({ open: true, title: "Delete affiliate?", description: `Remove ${a.name} and all their referral data permanently.`, variant: "destructive", onConfirm: () => { setAffiliates(prev => prev.filter(x => x.id !== a.id)); setPayouts(prev => prev.filter(p => p.affiliateId !== a.id)); toast({ title: "Affiliate deleted" }); } });
-
-  const toggleStatus = (a: Affiliate, newStatus: Affiliate["status"]) => {
-    if (newStatus === "suspended") {
-      setConfirm({ open: true, title: "Suspend affiliate?", description: `Suspend ${a.name}? They won't earn commissions while suspended.`, variant: "warning", onConfirm: () => { setAffiliates(prev => prev.map(x => x.id === a.id ? { ...x, status: "suspended" } : x)); toast({ title: `${a.name} suspended` }); } });
-    } else {
-      setAffiliates(prev => prev.map(x => x.id === a.id ? { ...x, status: newStatus } : x));
-      toast({ title: `${a.name} set to ${newStatus}` });
-    }
+  const deleteAffiliate = (a: Affiliate) => {
+    toast({ title: "Not Implemented", description: "Affiliate deletion coming soon" });
   };
 
-  const copyCode = (code: string) => { navigator.clipboard.writeText(code); toast({ title: "Referral code copied" }); };
-  const copyLink = (code: string) => { navigator.clipboard.writeText(`https://quittrapp.com/?ref=${code}`); toast({ title: "Referral link copied" }); };
+  const toggleStatus = (a: Affiliate, newStatus: Affiliate["status"]) => {
+    toast({ title: "Not Implemented", description: "Status toggle coming soon" });
+  };
+
+  const copyCode = (code: string) => {
+    toast({ title: "Not Implemented", description: "Code copying coming soon" });
+  };
+
+  const copyLink = (code: string) => {
+    toast({ title: "Not Implemented", description: "Link copying coming soon" });
+  };
 
   const processPayout = (p: Payout) => {
-    setConfirm({ open: true, title: "Process payout?", description: `Mark $${p.amount} payout to ${p.affiliateName} as paid?`, variant: "warning", confirmLabel: "Mark Paid", onConfirm: () => {
-      setPayouts(prev => prev.map(x => x.id === p.id ? { ...x, status: "paid", processedAt: new Date().toISOString().split("T")[0] } : x));
-      setAffiliates(prev => prev.map(a => a.id === p.affiliateId ? { ...a, pendingBalance: Math.max(0, a.pendingBalance - p.amount), totalPaid: a.totalPaid + p.amount } : a));
-      toast({ title: "Payout processed" });
-    } });
+    toast({ title: "Not Implemented", description: "Payout processing coming soon" });
   };
 
   const rejectPayout = (p: Payout) => {
-    setConfirm({ open: true, title: "Reject payout?", description: `Reject $${p.amount} payout request from ${p.affiliateName}?`, variant: "destructive", onConfirm: () => {
-      setPayouts(prev => prev.map(x => x.id === p.id ? { ...x, status: "failed" } : x));
-      toast({ title: "Payout rejected" });
-    } });
+    toast({ title: "Not Implemented", description: "Payout rejection coming soon" });
   };
 
   const approveReferral = (r: Referral) => {
-    setReferrals(prev => prev.map(x => x.id === r.id ? { ...x, status: "approved" } : x));
-    if (r.commission > 0) {
-      setAffiliates(prev => prev.map(a => a.id === r.affiliateId ? { ...a, pendingBalance: a.pendingBalance + r.commission, totalEarned: a.totalEarned + r.commission } : a));
-    }
-    toast({ title: "Referral approved" });
+    toast({ title: "Not Implemented", description: "Referral approval coming soon" });
   };
 
   const rejectReferral = (r: Referral) => {
-    setReferrals(prev => prev.map(x => x.id === r.id ? { ...x, status: "rejected" } : x));
-    toast({ title: "Referral rejected" });
+    toast({ title: "Not Implemented", description: "Referral rejection coming soon" });
   };
 
   const openTierEdit = (t: TierConfig) => {
-    setEditingTier(t);
-    setTierFormRate(String(t.commissionRate));
-    setTierFormMin(String(t.minConversions));
-    setTierFormBonus(String(t.bonus));
-    setShowTierDialog(true);
+    toast({ title: "Not Implemented", description: "Tier editing coming soon" });
   };
 
   const saveTier = () => {
-    if (!editingTier) return;
-    setTiers(prev => prev.map(t => t.name === editingTier.name ? { ...t, commissionRate: Number(tierFormRate), minConversions: Number(tierFormMin), bonus: Number(tierFormBonus) } : t));
+    toast({ title: "Not Implemented", description: "Tier save coming soon" });
     setShowTierDialog(false);
-    toast({ title: `${editingTier.name} tier updated` });
   };
 
   const exportCSV = () => {
-    const rows = [["Name", "Email", "Code", "Tier", "Status", "Rate", "Clicks", "Signups", "Conversions", "Earned", "Paid", "Pending"], ...affiliates.map(a => [a.name, a.email, a.code, a.tier, a.status, `${a.commissionRate}%`, a.totalClicks, a.totalSignups, a.totalConversions, `$${a.totalEarned}`, `$${a.totalPaid}`, `$${a.pendingBalance}`])];
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a"); link.href = url; link.download = "affiliates.csv"; link.click();
-    toast({ title: "Affiliates exported" });
+    toast({ title: "Not Implemented", description: "CSV export coming soon" });
   };
 
   const statusBadge = (s: string) => {
@@ -267,22 +242,28 @@ export default function AdminAffiliates() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {[
-          { label: "Total Affiliates", value: stats.total, icon: Users, color: "text-primary" },
-          { label: "Active", value: stats.active, icon: CheckCircle, color: "text-emerald-400" },
-          { label: "Total Clicks", value: stats.totalClicks.toLocaleString(), icon: MousePointerClick, color: "text-blue-400" },
-          { label: "Conversions", value: stats.totalConversions, icon: TrendingUp, color: "text-purple-400" },
-          { label: "Total Earned", value: `$${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: "text-yellow-400" },
-          { label: "Pending Payouts", value: `$${stats.pendingPayouts.toLocaleString()}`, icon: Clock, color: "text-orange-400" },
-        ].map(s => (
-          <Card key={s.label} className="bg-card border-border/40">
-            <CardContent className="p-4 flex flex-col items-center text-center gap-1">
-              <s.icon className={`h-5 w-5 ${s.color}`} />
-              <div className="text-2xl font-bold text-foreground">{s.value}</div>
-              <div className="text-xs text-muted-foreground">{s.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+          <div className="col-span-6 flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          [
+            { label: "Total Affiliates", value: stats.total, icon: Users, color: "text-primary" },
+            { label: "Active", value: stats.active, icon: CheckCircle, color: "text-emerald-400" },
+            { label: "Total Clicks", value: stats.totalClicks.toLocaleString(), icon: MousePointerClick, color: "text-blue-400" },
+            { label: "Conversions", value: stats.totalConversions, icon: TrendingUp, color: "text-purple-400" },
+            { label: "Total Earned", value: `$${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: "text-yellow-400" },
+            { label: "Pending Payouts", value: `$${stats.pendingPayouts.toLocaleString()}`, icon: Clock, color: "text-orange-400" },
+          ].map(s => (
+            <Card key={s.label} className="bg-card border-border/40">
+              <CardContent className="p-4 flex flex-col items-center text-center gap-1">
+                <s.icon className={`h-5 w-5 ${s.color}`} />
+                <div className="text-2xl font-bold text-foreground">{s.value}</div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <Tabs defaultValue="affiliates" className="space-y-4">
@@ -340,42 +321,51 @@ export default function AdminAffiliates() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(a => (
-                  <TableRow key={a.id}>
-                    <TableCell>
-                      <div className="font-medium text-foreground">{a.name}</div>
-                      <div className="text-xs text-muted-foreground">{a.email}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{a.code}</code>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyCode(a.code)}><Copy className="h-3 w-3" /></Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>{tierBadge(a.tier)}</TableCell>
-                    <TableCell>{statusBadge(a.status)}</TableCell>
-                    <TableCell className="text-right font-medium">{a.commissionRate}%</TableCell>
-                    <TableCell className="text-right">{a.totalClicks.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{a.totalConversions}</TableCell>
-                    <TableCell className="text-right font-medium text-emerald-400">${a.totalEarned.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-yellow-400">${a.pendingBalance}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDetailAffiliate(a); setShowDetailDialog(true); }}><Eye className="h-3.5 w-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(a.code)}><Link2 className="h-3.5 w-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Edit className="h-3.5 w-3.5" /></Button>
-                        {a.status === "active" ? (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-yellow-400" onClick={() => toggleStatus(a, "suspended")}><Ban className="h-3.5 w-3.5" /></Button>
-                        ) : a.status === "suspended" || a.status === "pending" ? (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-400" onClick={() => toggleStatus(a, "active")}><CheckCircle className="h-3.5 w-3.5" /></Button>
-                        ) : null}
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteAffiliate(a)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-                {filtered.length === 0 && (
+                ) : filtered.length === 0 ? (
                   <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No affiliates found</TableCell></TableRow>
+                ) : (
+                  filtered.map(a => (
+                    <TableRow key={a.id}>
+                      <TableCell>
+                        <div className="font-medium text-foreground">{a.name}</div>
+                        <div className="text-xs text-muted-foreground">{a.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{a.code}</code>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyCode(a.code)}><Copy className="h-3 w-3" /></Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>{tierBadge(a.tier)}</TableCell>
+                      <TableCell>{statusBadge(a.status)}</TableCell>
+                      <TableCell className="text-right font-medium">{a.commissionRate}%</TableCell>
+                      <TableCell className="text-right">{a.totalClicks.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{a.totalConversions}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-400">${a.totalEarned.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-yellow-400">${a.pendingBalance}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDetailAffiliate(a); setShowDetailDialog(true); }}><Eye className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(a.code)}><Link2 className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Edit className="h-3.5 w-3.5" /></Button>
+                          {a.status === "active" ? (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-yellow-400" onClick={() => toggleStatus(a, "suspended")}><Ban className="h-3.5 w-3.5" /></Button>
+                          ) : a.status === "suspended" || a.status === "pending" ? (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-400" onClick={() => toggleStatus(a, "active")}><CheckCircle className="h-3.5 w-3.5" /></Button>
+                          ) : null}
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteAffiliate(a)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -402,26 +392,38 @@ export default function AdminAffiliates() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {referrals.map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium text-foreground">{r.affiliateName}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.referredUser}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={r.type === "conversion" ? "border-emerald-500/50 text-emerald-400" : r.type === "signup" ? "border-blue-500/50 text-blue-400" : "border-muted-foreground/50"}>{r.type}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{r.commission > 0 ? `$${r.commission}` : "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.createdAt}</TableCell>
-                    <TableCell>{statusBadge(r.status)}</TableCell>
-                    <TableCell className="text-right">
-                      {r.status === "pending" && (
-                        <div className="flex justify-end gap-1">
-                          <Button size="sm" variant="outline" className="h-7 text-emerald-400" onClick={() => approveReferral(r)}><CheckCircle className="mr-1 h-3 w-3" />Approve</Button>
-                          <Button size="sm" variant="outline" className="h-7 text-destructive" onClick={() => rejectReferral(r)}><XCircle className="mr-1 h-3 w-3" />Reject</Button>
-                        </div>
-                      )}
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : referrals.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No referrals found</TableCell></TableRow>
+                ) : (
+                  referrals.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium text-foreground">{r.affiliateName}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.referredUser}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={r.type === "conversion" ? "border-emerald-500/50 text-emerald-400" : r.type === "signup" ? "border-blue-500/50 text-blue-400" : "border-muted-foreground/50"}>{r.type}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{r.commission > 0 ? `$${r.commission}` : "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.createdAt}</TableCell>
+                      <TableCell>{statusBadge(r.status)}</TableCell>
+                      <TableCell className="text-right">
+                        {r.status === "pending" && (
+                          <div className="flex justify-end gap-1">
+                            <Button size="sm" variant="outline" className="h-7 text-emerald-400" onClick={() => approveReferral(r)}><CheckCircle className="mr-1 h-3 w-3" />Approve</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-destructive" onClick={() => rejectReferral(r)}><XCircle className="mr-1 h-3 w-3" />Reject</Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
@@ -430,24 +432,32 @@ export default function AdminAffiliates() {
         {/* ─── PAYOUTS TAB ─── */}
         <TabsContent value="payouts" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-card border-border/40">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-yellow-400">${payouts.filter(p => p.status === "pending").reduce((s, p) => s + p.amount, 0)}</div>
-                <div className="text-xs text-muted-foreground">Pending</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-card border-border/40">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-blue-400">${payouts.filter(p => p.status === "processing").reduce((s, p) => s + p.amount, 0)}</div>
-                <div className="text-xs text-muted-foreground">Processing</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-card border-border/40">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-emerald-400">${payouts.filter(p => p.status === "paid").reduce((s, p) => s + p.amount, 0)}</div>
-                <div className="text-xs text-muted-foreground">Paid Total</div>
-              </CardContent>
-            </Card>
+            {loading ? (
+              <div className="col-span-3 flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : (
+              <>
+                <Card className="bg-card border-border/40">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-yellow-400">${payouts.filter(p => p.status === "pending").reduce((s, p) => s + p.amount, 0)}</div>
+                    <div className="text-xs text-muted-foreground">Pending</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border-border/40">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-400">${payouts.filter(p => p.status === "processing").reduce((s, p) => s + p.amount, 0)}</div>
+                    <div className="text-xs text-muted-foreground">Processing</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-card border-border/40">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-emerald-400">${payouts.filter(p => p.status === "paid").reduce((s, p) => s + p.amount, 0)}</div>
+                    <div className="text-xs text-muted-foreground">Paid Total</div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
           <Card className="bg-card border-border/40">
             <Table>
@@ -463,24 +473,36 @@ export default function AdminAffiliates() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payouts.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium text-foreground">{p.affiliateName}</TableCell>
-                    <TableCell className="font-bold">${p.amount}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.method}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.requestedAt}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.processedAt || "—"}</TableCell>
-                    <TableCell>{payoutBadge(p.status)}</TableCell>
-                    <TableCell className="text-right">
-                      {(p.status === "pending" || p.status === "processing") && (
-                        <div className="flex justify-end gap-1">
-                          <Button size="sm" variant="outline" className="h-7 text-emerald-400" onClick={() => processPayout(p)}><CreditCard className="mr-1 h-3 w-3" />Pay</Button>
-                          <Button size="sm" variant="outline" className="h-7 text-destructive" onClick={() => rejectPayout(p)}><XCircle className="mr-1 h-3 w-3" />Reject</Button>
-                        </div>
-                      )}
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : payouts.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No payouts found</TableCell></TableRow>
+                ) : (
+                  payouts.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium text-foreground">{p.affiliateName}</TableCell>
+                      <TableCell className="font-bold">${p.amount}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.method}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.requestedAt}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.processedAt || "—"}</TableCell>
+                      <TableCell>{payoutBadge(p.status)}</TableCell>
+                      <TableCell className="text-right">
+                        {(p.status === "pending" || p.status === "processing") && (
+                          <div className="flex justify-end gap-1">
+                            <Button size="sm" variant="outline" className="h-7 text-emerald-400" onClick={() => processPayout(p)}><CreditCard className="mr-1 h-3 w-3" />Pay</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-destructive" onClick={() => rejectPayout(p)}><XCircle className="mr-1 h-3 w-3" />Reject</Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
@@ -489,22 +511,32 @@ export default function AdminAffiliates() {
         {/* ─── TIERS TAB ─── */}
         <TabsContent value="tiers" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {tiers.map(t => (
-              <Card key={t.name} className="bg-card border-border/40">
-                <CardHeader className="pb-2">
-                  <CardTitle className={`text-lg ${t.color}`}>
-                    <Award className="inline mr-2 h-5 w-5" />{t.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Commission</span><span className="font-bold text-foreground">{t.commissionRate}%</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Min Conversions</span><span className="text-foreground">{t.minConversions}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bonus</span><span className="text-foreground">${t.bonus}</span></div>
-                  <div className="text-xs text-muted-foreground">{affiliates.filter(a => a.tier === t.name.toLowerCase()).length} affiliates</div>
-                  <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => openTierEdit(t)}><Edit className="mr-2 h-3 w-3" />Edit Tier</Button>
-                </CardContent>
-              </Card>
-            ))}
+            {loading ? (
+              <div className="col-span-4 flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+              </div>
+            ) : tiers.length === 0 ? (
+              <div className="col-span-4 flex items-center justify-center py-8 text-muted-foreground">
+                No tier configurations found
+              </div>
+            ) : (
+              tiers.map(t => (
+                <Card key={t.name} className="bg-card border-border/40">
+                  <CardHeader className="pb-2">
+                    <CardTitle className={`text-lg ${t.color}`}>
+                      <Award className="inline mr-2 h-5 w-5" />{t.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Commission</span><span className="font-bold text-foreground">{t.commissionRate}%</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Min Conversions</span><span className="text-foreground">{t.minConversions}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground">Bonus</span><span className="text-foreground">${t.bonus}</span></div>
+                    <div className="text-xs text-muted-foreground">{affiliates.filter(a => a.tier === t.name.toLowerCase()).length} affiliates</div>
+                    <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => openTierEdit(t)}><Edit className="mr-2 h-3 w-3" />Edit Tier</Button>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </TabsContent>
 

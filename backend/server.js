@@ -38,6 +38,15 @@ app.use('/api/roles', require('./routes/roles'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/lessons', require('./routes/lessons'));
 app.use('/api/community', require('./routes/community'));
+app.use('/api/subscriptions', require('./routes/subscriptions'));
+app.use('/api/support', require('./routes/support'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/content', require('./routes/content'));
+app.use('/api/media', require('./routes/media'));
+app.use('/api/reports', require('./routes/reports'));
+app.use('/api/affiliates', require('./routes/affiliates'));
+app.use('/api/audit', require('./routes/audit'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

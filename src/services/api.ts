@@ -217,4 +217,179 @@ export const api = {
     const response = await fetch(`${API_BASE_URL}/api/community/reports`);
     return response.json();
   },
+
+  // Subscriptions endpoints
+  getSubscriptionStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/subscriptions/stats`);
+    return response.json();
+  },
+
+  getSubscriptionPlans: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/subscriptions/plans`);
+    return response.json();
+  },
+
+  getSubscribers: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/subscriptions/subscribers`);
+    return response.json();
+  },
+
+  // Support tickets endpoints
+  getSupportStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/support/stats`);
+    return response.json();
+  },
+
+  getSupportTickets: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/support/tickets`);
+    return response.json();
+  },
+
+  // Notifications endpoints
+  getNotificationStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/stats`);
+    return response.json();
+  },
+
+  getNotificationCampaigns: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/notifications/campaigns`);
+    return response.json();
+  },
+
+  // Content management endpoints
+  getContentSections: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/content/sections`);
+    return response.json();
+  },
+
+  getBlogPosts: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/content/blog`);
+    return response.json();
+  },
+
+  getFaqs: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/content/faqs`);
+    return response.json();
+  },
+
+  getTestimonials: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/content/testimonials`);
+    return response.json();
+  },
+
+  getSeoPages: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/content/seo`);
+    return response.json();
+  },
+
+  // Media library endpoints
+  getMediaFiles: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/media/files`);
+    return response.json();
+  },
+
+  getStorageStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/media/storage`);
+    return response.json();
+  },
+
+  // Reports & analytics endpoints
+  getKpis: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/reports/kpis`);
+    return response.json();
+  },
+
+  getReportsUserGrowth: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/reports/user-growth`);
+    return response.json();
+  },
+
+  getRevenue: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/reports/revenue`);
+    return response.json();
+  },
+
+  getRetention: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/reports/retention`);
+    return response.json();
+  },
+
+  getPlanDistribution: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/reports/plan-distribution`);
+    return response.json();
+  },
+
+  getFeatureUsage: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/reports/feature-usage`);
+    return response.json();
+  },
+
+  // Affiliate management endpoints
+  getAffiliates: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/affiliates/affiliates`);
+    return response.json();
+  },
+
+  getAffiliateStats: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/affiliates/stats`);
+    return response.json();
+  },
+
+  getAffiliatePayouts: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/affiliates/payouts`);
+    return response.json();
+  },
+
+  getAffiliateReferrals: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/affiliates/referrals`);
+    return response.json();
+  },
+
+  getAffiliateTiers: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/affiliates/tiers`);
+    return response.json();
+  },
+
+  // Audit logs endpoints
+  getAuditLogs: async (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await fetch(`${API_BASE_URL}/api/audit/logs?${queryParams}`);
+    return response.json();
+  },
+
+  getAuditStats: async (days = 30) => {
+    const response = await fetch(`${API_BASE_URL}/api/audit/stats?days=${days}`);
+    return response.json();
+  },
+
+  // Settings endpoints
+  getGeneralSettings: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/settings/general`);
+    return response.json();
+  },
+
+  getBrandingSettings: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/settings/branding`);
+    return response.json();
+  },
+
+  getEmailTemplates: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/settings/emails`);
+    return response.json();
+  },
+
+  getIntegrations: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/settings/integrations`);
+    return response.json();
+  },
+
+  getApiKeys: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/settings/api-keys`);
+    return response.json();
+  },
+
+  getSecuritySettings: async () => {
+    const response = await fetch(`${API_BASE_URL}/api/settings/security`);
+    return response.json();
+  },
 };

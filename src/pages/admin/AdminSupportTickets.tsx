@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,21 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Search, MessageSquare, Clock, CheckCircle2, AlertCircle, XCircle, Send } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { api } from "@/services/api";
 
 interface Ticket {
   id: string; subject: string; user: string; email: string; priority: string; status: string; category: string; created: string; lastReply: string; messages: number; replies: string[];
 }
-
-const initialTickets: Ticket[] = [
-  { id: "TKT-001", subject: "Can't access premium lessons", user: "Marcus Rivera", email: "marcus@buildfast.co", priority: "high", status: "open", category: "billing", created: "2026-02-28 10:15", lastReply: "2h ago", messages: 3, replies: [] },
-  { id: "TKT-002", subject: "App crashes on sound therapy page", user: "Aiko Tanaka", email: "aiko@nexgen.dev", priority: "critical", status: "open", category: "bug", created: "2026-02-28 08:30", lastReply: "4h ago", messages: 5, replies: [] },
-  { id: "TKT-003", subject: "Request to delete my account", user: "Leo Martinez", email: "leo@rapid.dev", priority: "medium", status: "in_progress", category: "account", created: "2026-02-27 16:45", lastReply: "1d ago", messages: 2, replies: [] },
-  { id: "TKT-004", subject: "Suggestion: Add guided meditation", user: "Emma Wilson", email: "emma@design.co", priority: "low", status: "in_progress", category: "feature", created: "2026-02-27 12:00", lastReply: "1d ago", messages: 4, replies: [] },
-  { id: "TKT-005", subject: "Payment failed but was charged", user: "Tom Zhang", email: "tom@launch.io", priority: "critical", status: "open", category: "billing", created: "2026-02-26 09:20", lastReply: "2d ago", messages: 6, replies: [] },
-  { id: "TKT-006", subject: "Community post wrongly removed", user: "James O'Brien", email: "james@scaleup.com", priority: "medium", status: "resolved", category: "moderation", created: "2026-02-25 14:10", lastReply: "3d ago", messages: 3, replies: [] },
-  { id: "TKT-007", subject: "How to upgrade my plan?", user: "Priya Sharma", email: "priya@moonshot.io", priority: "low", status: "resolved", category: "billing", created: "2026-02-24 11:00", lastReply: "4d ago", messages: 2, replies: [] },
-  { id: "TKT-008", subject: "Push notifications not working on iOS", user: "Sarah Chen", email: "sarah@techflow.io", priority: "high", status: "closed", category: "bug", created: "2026-02-23 08:00", lastReply: "5d ago", messages: 8, replies: [] },
-];
 
 const priorityColor: Record<string, string> = { critical: "bg-red-500/20 text-red-400 border-red-500/30", high: "bg-orange-500/20 text-orange-400 border-orange-500/30", medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", low: "bg-green-500/20 text-green-400 border-green-500/30" };
 const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
@@ -34,11 +24,35 @@ const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
 };
 
 export default function AdminSupportTickets() {
-  const [tickets, setTickets] = useState(initialTickets);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [statusChanges, setStatusChanges] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetchSupportData();
+  }, []);
+
+  const fetchSupportData = async () => {
+    try {
+      setLoading(true);
+      const [ticketsRes, statsRes] = await Promise.all([
+        api.getSupportTickets(),
+        api.getSupportStats(),
+      ]);
+
+      setTickets(Array.isArray(ticketsRes) ? ticketsRes : []);
+    } catch (error) {
+      console.error('Failed to fetch support data:', error);
+      toast({ title: "Error", description: "Failed to load support data" });
+      // Set empty array to prevent filter errors
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = tickets.filter((t) => {
     const matchSearch = t.subject.toLowerCase().includes(search.toLowerCase()) || t.user.toLowerCase().includes(search.toLowerCase()) || t.id.toLowerCase().includes(search.toLowerCase());
@@ -47,24 +61,18 @@ export default function AdminSupportTickets() {
   });
 
   const sendReply = (ticketId: string) => {
-    const text = replyTexts[ticketId];
-    if (!text?.trim()) return;
-    setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, replies: [...t.replies, text], messages: t.messages + 1, lastReply: "Just now", status: statusChanges[ticketId] || t.status } : t));
-    setReplyTexts((prev) => ({ ...prev, [ticketId]: "" }));
-    toast({ title: "Reply Sent", description: `Reply sent to ticket ${ticketId}.` });
+    toast({ title: "Not Implemented", description: "Ticket reply coming soon" });
   };
 
   const changeTicketStatus = (ticketId: string, status: string) => {
-    setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status } : t));
-    setStatusChanges((prev) => ({ ...prev, [ticketId]: status }));
-    toast({ title: "Status Updated", description: `${ticketId} is now ${status.replace("_", " ")}.` });
+    toast({ title: "Not Implemented", description: "Ticket status update coming soon" });
   };
 
   const stats = [
     { label: "Open", value: tickets.filter((t) => t.status === "open").length, color: "text-blue-400" },
     { label: "In Progress", value: tickets.filter((t) => t.status === "in_progress").length, color: "text-yellow-400" },
     { label: "Resolved", value: tickets.filter((t) => t.status === "resolved").length, color: "text-green-400" },
-    { label: "Avg Response", value: "2.4h", color: "text-primary" },
+    { label: "Avg Response", value: "0h", color: "text-primary" },
   ];
 
   return (
@@ -72,7 +80,13 @@ export default function AdminSupportTickets() {
       <div><h1 className="font-display text-2xl font-bold text-foreground">Support Tickets</h1><p className="text-sm text-muted-foreground">Manage user inquiries, bug reports, and feature requests.</p></div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {stats.map((s) => (<Card key={s.label} className="bg-card/60 border-border/40"><CardContent className="p-4 text-center"><div className={`text-2xl font-bold ${s.color}`}>{s.value}</div><div className="text-xs text-muted-foreground mt-1">{s.label}</div></CardContent></Card>))}
+        {loading ? (
+          <div className="col-span-4 flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : (
+          stats.map((s) => (<Card key={s.label} className="bg-card/60 border-border/40"><CardContent className="p-4 text-center"><div className={`text-2xl font-bold ${s.color}`}>{s.value}</div><div className="text-xs text-muted-foreground mt-1">{s.label}</div></CardContent></Card>))
+        )}
       </div>
 
       <Card className="bg-card/60 border-border/40">
@@ -108,51 +122,65 @@ export default function AdminSupportTickets() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((t) => (
-                <TableRow key={t.id} className="border-border/20 hover:bg-secondary/20">
-                  <TableCell className="text-xs font-mono text-primary">{t.id}</TableCell>
-                  <TableCell><div className="text-sm text-foreground font-medium max-w-[250px] truncate">{t.subject}</div></TableCell>
-                  <TableCell><div className="text-sm text-foreground">{t.user}</div><div className="text-xs text-muted-foreground">{t.email}</div></TableCell>
-                  <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${priorityColor[t.priority]}`}>{t.priority}</Badge></TableCell>
-                  <TableCell><Badge variant="outline" className={`text-[10px] capitalize flex items-center gap-1 w-fit ${statusConfig[t.status].color}`}>{statusConfig[t.status].icon}{t.status.replace("_", " ")}</Badge></TableCell>
-                  <TableCell className="text-xs text-muted-foreground"><div className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {t.messages}<span className="mx-1">·</span>{t.lastReply}</div></TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-xs text-primary">View</Button></DialogTrigger>
-                      <DialogContent className="bg-card border-border/40 max-w-lg">
-                        <DialogHeader><DialogTitle className="text-foreground text-base">{t.id}: {t.subject}</DialogTitle></DialogHeader>
-                        <div className="space-y-4 mt-2">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>From: <strong className="text-foreground">{t.user}</strong></span><span>·</span><span>{t.created}</span>
-                          </div>
-                          <div className="bg-secondary/40 rounded-lg p-3 text-sm text-muted-foreground">
-                            This is a support request regarding: {t.subject}. The user needs assistance with their {t.category} issue.
-                          </div>
-                          {t.replies.map((reply, i) => (
-                            <div key={i} className="bg-primary/10 rounded-lg p-3 text-sm text-foreground border border-primary/20">
-                              <div className="text-[10px] text-muted-foreground mb-1">Admin Reply</div>
-                              {reply}
-                            </div>
-                          ))}
-                          <Textarea placeholder="Write a reply..." value={replyTexts[t.id] || ""} onChange={(e) => setReplyTexts((prev) => ({ ...prev, [t.id]: e.target.value }))} className="bg-secondary/40 border-border/30 text-sm" rows={3} />
-                          <div className="flex items-center justify-between">
-                            <Select value={statusChanges[t.id] || t.status} onValueChange={(v) => changeTicketStatus(t.id, v)}>
-                              <SelectTrigger className="w-36 bg-secondary/40 border-border/30 text-xs"><SelectValue /></SelectTrigger>
-                              <SelectContent className="bg-card border-border/40">
-                                <SelectItem value="open">Open</SelectItem>
-                                <SelectItem value="in_progress">In Progress</SelectItem>
-                                <SelectItem value="resolved">Resolved</SelectItem>
-                                <SelectItem value="closed">Closed</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Button size="sm" className="text-xs" onClick={() => sendReply(t.id)}><Send className="w-3 h-3 mr-1.5" /> Send Reply</Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No tickets found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((t) => (
+                  <TableRow key={t.id} className="border-border/20 hover:bg-secondary/20">
+                    <TableCell className="text-xs font-mono text-primary">{t.id}</TableCell>
+                    <TableCell><div className="text-sm text-foreground font-medium max-w-[250px] truncate">{t.subject}</div></TableCell>
+                    <TableCell><div className="text-sm text-foreground">{t.user}</div><div className="text-xs text-muted-foreground">{t.email}</div></TableCell>
+                    <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${priorityColor[t.priority]}`}>{t.priority}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className={`text-[10px] capitalize flex items-center gap-1 w-fit ${statusConfig[t.status].color}`}>{statusConfig[t.status].icon}{t.status.replace("_", " ")}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground"><div className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {t.messages}<span className="mx-1">·</span>{t.lastReply}</div></TableCell>
+                    <TableCell>
+                      <Dialog>
+                        <DialogTrigger asChild><Button variant="ghost" size="sm" className="text-xs text-primary">View</Button></DialogTrigger>
+                        <DialogContent className="bg-card border-border/40 max-w-lg">
+                          <DialogHeader><DialogTitle className="text-foreground text-base">{t.id}: {t.subject}</DialogTitle></DialogHeader>
+                          <div className="space-y-4 mt-2">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>From: <strong className="text-foreground">{t.user}</strong></span><span>·</span><span>{t.created}</span>
+                            </div>
+                            <div className="bg-secondary/40 rounded-lg p-3 text-sm text-muted-foreground">
+                              This is a support request regarding: {t.subject}. The user needs assistance with their {t.category} issue.
+                            </div>
+                            {t.replies.map((reply, i) => (
+                              <div key={i} className="bg-primary/10 rounded-lg p-3 text-sm text-foreground border border-primary/20">
+                                <div className="text-[10px] text-muted-foreground mb-1">Admin Reply</div>
+                                {reply}
+                              </div>
+                            ))}
+                            <Textarea placeholder="Write a reply..." value={replyTexts[t.id] || ""} onChange={(e) => setReplyTexts((prev) => ({ ...prev, [t.id]: e.target.value }))} className="bg-secondary/40 border-border/30 text-sm" rows={3} />
+                            <div className="flex items-center justify-between">
+                              <Select value={statusChanges[t.id] || t.status} onValueChange={(v) => changeTicketStatus(t.id, v)}>
+                                <SelectTrigger className="w-36 bg-secondary/40 border-border/30 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent className="bg-card border-border/40">
+                                  <SelectItem value="open">Open</SelectItem>
+                                  <SelectItem value="in_progress">In Progress</SelectItem>
+                                  <SelectItem value="resolved">Resolved</SelectItem>
+                                  <SelectItem value="closed">Closed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button size="sm" className="text-xs" onClick={() => sendReply(t.id)}><Send className="w-3 h-3 mr-1.5" /> Send Reply</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
