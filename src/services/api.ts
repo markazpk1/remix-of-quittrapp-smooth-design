@@ -29,12 +29,23 @@ export const api = {
   },
 
   adminLogin: async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/admin/login`, {
+    const url = `${API_BASE_URL}/api/auth/admin/login`;
+    console.log('Making admin login request to:', url);
+    console.log('Request body:', { email, password: '***' });
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    return response.json();
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    const result = await response.json();
+    console.log('Response body:', result);
+    
+    return result;
   },
 
   logout: async (token: string) => {

@@ -30,15 +30,27 @@ export default function AdminLogin() {
 
     setIsLoading(true);
     try {
+      console.log('Submitting admin login:', { email, password: '***' });
       const response = await api.adminLogin(email, password);
+      console.log('Admin login response:', response);
+      
       if (response.error) {
-        toast.error(response.error);
+        if (response.error.includes('Access denied')) {
+          toast.error("Invalid admin credentials. Please check the development credentials above.");
+        } else {
+          toast.error(response.error);
+        }
         return;
       }
       toast.success("Admin login successful!");
-      localStorage.setItem('adminSession', JSON.stringify(response.session));
+      localStorage.setItem('adminSession', JSON.stringify({ 
+        token: response.session?.access_token,
+        user: response.user,
+        isAdmin: true
+      }));
       navigate("/admin");
     } catch (error: any) {
+      console.error('Admin login error:', error);
       toast.error(error.message || "Failed to login. Please try again.");
     } finally {
       setIsLoading(false);
@@ -97,6 +109,11 @@ export default function AdminLogin() {
           <div className="mb-8">
             <h1 className="font-display text-2xl font-bold text-foreground">Admin Login</h1>
             <p className="text-sm text-muted-foreground mt-1">Access the admin dashboard</p>
+            <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+              <p className="text-xs text-purple-300 font-medium">Development Credentials:</p>
+              <p className="text-xs text-purple-200 mt-1">Email: admin@momincore.com</p>
+              <p className="text-xs text-purple-200">Password: admin123456</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
