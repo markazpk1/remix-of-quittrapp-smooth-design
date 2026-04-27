@@ -14,88 +14,79 @@ import { toast } from "sonner";
 import HabitTrackerWidget from "@/components/user/HabitTrackerWidget";
 import HabitReportsWidget from "@/components/user/HabitReportsWidget";
 import { useHabitNotifications } from "@/hooks/useHabitNotifications";
-
-const streakData = [
-  { day: "Mon", score: 85 },
-  { day: "Tue", score: 72 },
-  { day: "Wed", score: 90 },
-  { day: "Thu", score: 65 },
-  { day: "Fri", score: 88 },
-  { day: "Sat", score: 95 },
-  { day: "Sun", score: 78 },
-];
-
-const milestones = [
-  { label: "1 Week Clean", achieved: true, date: "Feb 15", icon: Star },
-  { label: "2 Weeks Clean", achieved: true, date: "Feb 22", icon: Star },
-  { label: "1 Month Clean", achieved: false, date: "In 6 days", icon: Trophy },
-  { label: "100 Lessons Done", achieved: false, date: "87/100", icon: Zap },
-];
-
-const recentActivity = [
-  { text: "Completed lesson: Understanding Triggers", time: "2h ago", type: "lesson" },
-  { text: "Listened to Ocean Waves (15 min)", time: "5h ago", type: "sound" },
-  { text: "Shared in community: 14 day milestone!", time: "1d ago", type: "community" },
-  { text: "Used Panic Button successfully", time: "2d ago", type: "panic" },
-  { text: "Completed daily check-in", time: "2d ago", type: "checkin" },
-];
-
-function getTimeOfDay() {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return "morning";
-  if (h >= 12 && h < 17) return "afternoon";
-  if (h >= 17 && h < 21) return "evening";
-  return "night";
-}
-
-const recommendedTracks: Record<string, { title: string; therapist: string; duration: string; category: string; icon: React.ElementType }[]> = {
-  morning: [
-    { title: "Morning Mindfulness", therapist: "Dr. Sarah Wells", duration: "10:00", category: "Mindfulness", icon: Sparkles },
-    { title: "Building Inner Strength", therapist: "Dr. Marcus Lee", duration: "15:00", category: "Motivation", icon: Sunrise },
-    { title: "Gratitude & Positivity", therapist: "AI Voice — Luna", duration: "9:30", category: "Motivation", icon: Sunrise },
-  ],
-  afternoon: [
-    { title: "Overcoming Urges", therapist: "Dr. James Hart", duration: "8:45", category: "Recovery", icon: ShieldCheck },
-    { title: "Self-Compassion Practice", therapist: "AI Voice — Atlas", duration: "14:20", category: "Mindfulness", icon: Sparkles },
-    { title: "Rewiring Habits", therapist: "Dr. Marcus Lee", duration: "11:15", category: "Recovery", icon: Brain },
-  ],
-  evening: [
-    { title: "Evening Wind Down", therapist: "Dr. Emily Tran", duration: "16:00", category: "Sleep", icon: Moon },
-    { title: "Letting Go of Anxiety", therapist: "Dr. Sarah Wells", duration: "12:30", category: "Anxiety", icon: Brain },
-    { title: "Deep Relaxation Body Scan", therapist: "Dr. Emily Tran", duration: "18:00", category: "Anxiety", icon: Brain },
-  ],
-  night: [
-    { title: "Sleep & Recovery", therapist: "AI Voice — Luna", duration: "20:00", category: "Sleep", icon: Moon },
-    { title: "Evening Wind Down", therapist: "Dr. Emily Tran", duration: "16:00", category: "Sleep", icon: Moon },
-    { title: "Deep Relaxation Body Scan", therapist: "Dr. Emily Tran", duration: "18:00", category: "Anxiety", icon: Brain },
-  ],
-};
-
-const timeLabels: Record<string, { greeting: string; emoji: string; recLabel: string }> = {
-  morning: { greeting: "Good Morning", emoji: "☀️", recLabel: "this morning" },
-  afternoon: { greeting: "Good Afternoon", emoji: "🌤️", recLabel: "this afternoon" },
-  evening: { greeting: "Good Evening", emoji: "🌅", recLabel: "tonight" },
-  night: { greeting: "Good Night", emoji: "🌙", recLabel: "bedtime" },
-};
+import { api } from "@/services/api";
 
 export default function UserDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [showCheckIn, setShowCheckIn] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.getUserDashboard(token);
+      if (response.error) {
+        toast.error('Failed to load dashboard data');
+        return;
+      }
+      
+      setDashboardData(response);
+    } catch (error) {
+      console.error('Dashboard data error:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const streakData = dashboardData?.streakData || [];
+  const milestones = dashboardData?.milestones || [];
+  const recentActivity = dashboardData?.recentActivity || [];
+  const streak = dashboardData?.streak || {};
+  const dailyGoals = dashboardData?.dailyGoals || {};
+  const profile = dashboardData?.profile || {};
+
+  function getTimeOfDay() {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return "morning";
+    if (h >= 12 && h < 17) return "afternoon";
+    if (h >= 17 && h < 21) return "evening";
+    return "night";
+  }
+
   const timeOfDay = useMemo(() => getTimeOfDay(), []);
-  const tracks = recommendedTracks[timeOfDay];
-  const { greeting, emoji, recLabel } = timeLabels[timeOfDay];
+  const { greeting, emoji } = useMemo(() => {
+    switch (timeOfDay) {
+      case "morning": return { text: "Good morning", icon: Sunrise, emoji: "🌅" };
+      case "afternoon": return { text: "Good afternoon", icon: Sun, emoji: "☀️" };
+      case "evening": return { text: "Good evening", icon: Moon, emoji: "🌙" };
+      default: return { text: "Good night", icon: Moon, emoji: "🌙" };
+    }
+  }, [timeOfDay]);
 
   useHabitNotifications();
-  const [showCheckIn, setShowCheckIn] = useState(false);
   const [showWeeklySummary, setShowWeeklySummary] = useState(false);
 
   useEffect(() => {
-    const today = new Date().toDateString();
-    const lastCheckIn = localStorage.getItem("quittr_last_checkin");
-    if (lastCheckIn !== today) {
-      const timer = setTimeout(() => setShowCheckIn(true), 600);
-      return () => clearTimeout(timer);
-    }
-
     // Show weekly summary on Mondays if not seen this week
     const dayOfWeek = new Date().getDay();
     const weekKey = `quittr_weekly_summary_${format(new Date(), "yyyy-ww")}`;
@@ -105,12 +96,6 @@ export default function UserDashboard() {
     }
   }, []);
 
-  const handleCheckInComplete = (mood: string, note: string) => {
-    localStorage.setItem("quittr_last_checkin", new Date().toDateString());
-    setShowCheckIn(false);
-    toast.success("Check-in saved! Keep going 💪");
-  };
-
   const handleWeeklySummaryClose = () => {
     localStorage.setItem(`quittr_weekly_summary_${format(new Date(), "yyyy-ww")}`, "true");
     setShowWeeklySummary(false);
@@ -118,11 +103,11 @@ export default function UserDashboard() {
 
   return (
     <div className="space-y-6">
-      <DailyCheckInModal open={showCheckIn} onComplete={handleCheckInComplete} />
+      <DailyCheckInModal open={showCheckIn} onComplete={() => setShowCheckIn(false)} />
       <WeeklyMoodSummary open={showWeeklySummary} onClose={handleWeeklySummaryClose} />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">{emoji} {greeting}, John</h1>
+          <h1 className="font-display text-2xl font-bold text-foreground">{emoji} {greeting}, {profile.full_name || 'User'}</h1>
           <p className="text-sm text-muted-foreground">Keep going — you're doing amazing.</p>
         </div>
         <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowWeeklySummary(true)}>
@@ -131,7 +116,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Daily Quote */}
-      <DailyQuoteWidget daysClean={14} />
+      <DailyQuoteWidget daysClean={streak.prayer_streak || 0} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -142,7 +127,7 @@ export default function UserDashboard() {
                 <Flame className="w-5 h-5 text-orange-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">14</div>
+                <div className="text-2xl font-bold text-foreground">{streak.prayer_streak || 0}</div>
                 <div className="text-xs text-muted-foreground">Day Streak</div>
               </div>
             </div>
@@ -155,7 +140,7 @@ export default function UserDashboard() {
                 <Calendar className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">14</div>
+                <div className="text-2xl font-bold text-foreground">{streak.prayer_streak || 0}</div>
                 <div className="text-xs text-muted-foreground">Days Clean</div>
               </div>
             </div>
@@ -168,8 +153,8 @@ export default function UserDashboard() {
                 <Trophy className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">87</div>
-                <div className="text-xs text-muted-foreground">Lessons Done</div>
+                <div className="text-2xl font-bold text-foreground">{dailyGoals.productivity_score || 0}</div>
+                <div className="text-xs text-muted-foreground">Productivity</div>
               </div>
             </div>
           </CardContent>
@@ -181,8 +166,8 @@ export default function UserDashboard() {
                 <Heart className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">6</div>
-                <div className="text-xs text-muted-foreground">Panic Saves</div>
+                <div className="text-2xl font-bold text-foreground">{dailyGoals.prayers_completed || 0}/5</div>
+                <div className="text-xs text-muted-foreground">Prayers Today</div>
               </div>
             </div>
           </CardContent>
@@ -316,26 +301,25 @@ export default function UserDashboard() {
       {/* Habit Reports */}
       <HabitReportsWidget />
 
-      {/* Mood History */}
-      <MoodHistoryChart />
-
       {/* Recent Activity */}
       <Card className="bg-card/60 border-border/40">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" /> Recent Activity
-          </CardTitle>
+          <CardTitle className="text-sm font-medium text-foreground">Recent Activity</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {recentActivity.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                <span className="text-foreground flex-1">{a.text}</span>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{a.time}</span>
+        <CardContent className="space-y-3">
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground">No recent activity</div>
+          ) : (
+            recentActivity.map((activity, index) => (
+              <div key={index} className="flex items-center gap-3 p-2">
+                <div className="w-2 h-2 rounded-full bg-primary"></div>
+                <div className="flex-1">
+                  <div className="text-sm text-foreground">{activity.text}</div>
+                  <div className="text-xs text-muted-foreground">{activity.time}</div>
+                </div>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,8 +6,54 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Camera, Trophy, Calendar, Flame } from "lucide-react";
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function UserProfile() {
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.getUserProfile(token);
+      if (response.error) {
+        toast.error('Failed to load profile data');
+        return;
+      }
+      
+      setProfileData(response);
+    } catch (error) {
+      console.error('Profile data error:', error);
+      toast.error('Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const profile = profileData?.profile || {};
+  const stats = profileData?.stats || {};
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>

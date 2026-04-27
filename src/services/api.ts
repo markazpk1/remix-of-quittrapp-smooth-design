@@ -48,14 +48,95 @@ export const api = {
     return result;
   },
 
-  logout: async (token: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
-      method: 'POST',
+  // User endpoints
+  getUserDashboard: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ token }),
+    });
+    return response.json();
+  },
+
+  getUserProgress: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/progress`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  getUserLessons: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/lessons`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  getUserSounds: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/sounds`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  getUserCommunity: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/community`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  getUserProfile: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  getUserSubscription: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/subscription`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  getUserSettings: async (token: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/settings`, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    return response.json();
+  },
+
+  updateUserSettings: async (token: string, settings: any) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/settings`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(settings),
     });
     return response.json();
   },

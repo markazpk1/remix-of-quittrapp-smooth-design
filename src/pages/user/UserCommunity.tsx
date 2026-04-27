@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useMemo, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import CommunityPostCard, { type PostData } from "@/components/user/CommunityPostCard";
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 type PostCategory = "all" | "milestone" | "journal" | "encouragement" | "general";
 
@@ -104,10 +107,56 @@ const postTypeOptions: { value: PostCategory; label: string }[] = [
 ];
 
 export default function UserCommunity() {
+  const [loading, setLoading] = useState(true);
+  const [communityData, setCommunityData] = useState<any>(null);
+  const [search, setSearch] = useState("");
   const [newPost, setNewPost] = useState("");
   const [postType, setPostType] = useState<PostCategory>("general");
   const [activeFilter, setActiveFilter] = useState<PostCategory>("all");
   const [localReactions, setLocalReactions] = useState<Record<number, Record<string, boolean>>>({});
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchCommunityData();
+  }, []);
+
+  const fetchCommunityData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.getUserCommunity(token);
+      if (response.error) {
+        toast.error('Failed to load community posts');
+        return;
+      }
+      
+      setCommunityData(response);
+    } catch (error) {
+      console.error('Community data error:', error);
+      toast.error('Failed to load community posts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const threads = communityData?.threads || [];
+
+  const filteredThreads = threads.filter((thread: any) =>
+    thread.content.toLowerCase().includes(search.toLowerCase())
+  );
 
   const allPosts = useMemo(() => {
     const shared: PostData[] = JSON.parse(localStorage.getItem("quittr_community_posts") || "[]");

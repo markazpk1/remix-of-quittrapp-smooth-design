@@ -1,7 +1,11 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap, Star } from "lucide-react";
+import { Crown, Star, CheckCircle, ArrowRight, CreditCard, Shield, Zap, Check } from "lucide-react";
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const plans = [
   {

@@ -1,44 +1,59 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Flame, Calendar, Trophy, Target, TrendingUp, Zap, Clock, ArrowUp } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
-const monthlyData = [
-  { week: "W1", clean: 7, cravings: 3 },
-  { week: "W2", clean: 7, cravings: 2 },
-  { week: "W3", clean: 6, cravings: 4 },
-  { week: "W4", clean: 7, cravings: 1 },
-];
-
-const moodData = [
-  { day: "1", mood: 3 }, { day: "3", mood: 4 }, { day: "5", mood: 3 }, { day: "7", mood: 5 },
-  { day: "9", mood: 4 }, { day: "11", mood: 6 }, { day: "13", mood: 5 }, { day: "14", mood: 7 },
-];
-
-const achievements = [
-  { title: "First Step", desc: "Started your journey", unlocked: true, icon: "🚀" },
-  { title: "3 Day Warrior", desc: "3 days without relapse", unlocked: true, icon: "⚔️" },
-  { title: "Week Champion", desc: "1 full week clean", unlocked: true, icon: "🏆" },
-  { title: "2 Week Hero", desc: "14 days strong", unlocked: true, icon: "🦸" },
-  { title: "Month Master", desc: "30 days clean", unlocked: false, icon: "👑" },
-  { title: "Lesson Lover", desc: "Complete 50 lessons", unlocked: true, icon: "📚" },
-  { title: "Community Star", desc: "Help 10 people", unlocked: false, icon: "⭐" },
-  { title: "Sound Healer", desc: "100 min of sound therapy", unlocked: true, icon: "🎵" },
-  { title: "Century Club", desc: "100 days clean", unlocked: false, icon: "💯" },
-  { title: "AI Partner", desc: "50 AI conversations", unlocked: false, icon: "🤖" },
-];
-
-const stats = [
-  { label: "Current Streak", value: "14 days", icon: Flame, color: "text-orange-400 bg-orange-500/20" },
-  { label: "Best Streak", value: "14 days", icon: Trophy, color: "text-yellow-400 bg-yellow-500/20" },
-  { label: "Total Clean Days", value: "27 / 42", icon: Calendar, color: "text-primary bg-primary/20" },
-  { label: "Cravings Resisted", value: "34", icon: Target, color: "text-green-400 bg-green-500/20" },
-  { label: "Avg Daily Score", value: "82/100", icon: TrendingUp, color: "text-blue-400 bg-blue-500/20" },
-  { label: "Time Saved", value: "42 hrs", icon: Clock, color: "text-purple-400 bg-purple-500/20" },
-];
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function UserProgress() {
+  const [loading, setLoading] = useState(true);
+  const [progressData, setProgressData] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProgressData();
+  }, []);
+
+  const fetchProgressData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.getUserProgress(token);
+      if (response.error) {
+        toast.error('Failed to load progress data');
+        return;
+      }
+      
+      setProgressData(response);
+    } catch (error) {
+      console.error('Progress data error:', error);
+      toast.error('Failed to load progress data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const monthlyData = progressData?.monthlyData || [];
+  const moodData = progressData?.moodData || [];
+  const achievements = progressData?.achievements || [];
+  const stats = progressData?.stats || [];
+  const streaks = progressData?.streaks || {};
   return (
     <div className="space-y-6">
       <div>
@@ -48,17 +63,35 @@ export default function UserProgress() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {stats.map((s) => (
-          <Card key={s.label} className="bg-card/60 border-border/40">
-            <CardContent className="p-4">
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${s.color.split(" ")[1]}`}>
-                <s.icon className={`w-4.5 h-4.5 ${s.color.split(" ")[0]}`} />
-              </div>
-              <div className="text-lg font-bold text-foreground">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground">{s.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {stats.map((s, index) => {
+          const getIcon = (iconName: string) => {
+            switch (iconName) {
+              case 'Flame': return Flame;
+              case 'Trophy': return Trophy;
+              case 'Calendar': return Calendar;
+              case 'Target': return Target;
+              case 'TrendingUp': return TrendingUp;
+              case 'Clock': return Clock;
+              default: return Flame;
+            }
+          };
+          const Icon = getIcon(s.icon);
+          return (
+            <Card key={index} className="bg-card/60 border-border/40">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.color}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">{s.value}</div>
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

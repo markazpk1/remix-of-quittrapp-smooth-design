@@ -1,38 +1,67 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Play, CheckCircle2, Clock, BookOpen, Lock } from "lucide-react";
-
-const lessons = [
-  { id: 1, title: "Understanding Your Triggers", category: "Fundamentals", duration: "8 min", type: "article", completed: true, locked: false },
-  { id: 2, title: "The Science of Addiction", category: "Fundamentals", duration: "12 min", type: "video", completed: true, locked: false },
-  { id: 3, title: "Building New Habits", category: "Fundamentals", duration: "10 min", type: "article", completed: true, locked: false },
-  { id: 4, title: "Mindfulness Techniques", category: "Mindfulness", duration: "15 min", type: "video", completed: false, locked: false },
-  { id: 5, title: "Breathing Exercises 101", category: "Mindfulness", duration: "6 min", type: "audio", completed: false, locked: false },
-  { id: 6, title: "Emotional Regulation", category: "Psychology", duration: "14 min", type: "video", completed: false, locked: false },
-  { id: 7, title: "Rewiring Your Brain", category: "Psychology", duration: "11 min", type: "article", completed: false, locked: false },
-  { id: 8, title: "Advanced Meditation", category: "Mindfulness", duration: "20 min", type: "audio", completed: false, locked: true },
-  { id: 9, title: "Relapse Prevention Plan", category: "Recovery", duration: "18 min", type: "video", completed: false, locked: true },
-  { id: 10, title: "Building a Support Network", category: "Recovery", duration: "9 min", type: "article", completed: false, locked: true },
-];
-
-const categories = ["All", "Fundamentals", "Mindfulness", "Psychology", "Recovery"];
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function UserLessons() {
+  const [loading, setLoading] = useState(true);
+  const [lessonsData, setLessonsData] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const navigate = useNavigate();
 
-  const filtered = lessons.filter((l) => {
+  useEffect(() => {
+    fetchLessonsData();
+  }, []);
+
+  const fetchLessonsData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.getUserLessons(token);
+      if (response.error) {
+        toast.error('Failed to load lessons');
+        return;
+      }
+      
+      setLessonsData(response);
+    } catch (error) {
+      console.error('Lessons data error:', error);
+      toast.error('Failed to load lessons');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const lessons = lessonsData?.lessons || [];
+  const categories = lessonsData?.categories || ["All"];
+  const completed = lessonsData?.completed || 0;
+  const progress = lessonsData?.progress || 0;
+
+  const filtered = lessons.filter((l: any) => {
     const matchSearch = l.title.toLowerCase().includes(search.toLowerCase());
     const matchCat = category === "All" || l.category === category;
     return matchSearch && matchCat;
   });
-
-  const completed = lessons.filter((l) => l.completed).length;
-  const progress = (completed / lessons.length) * 100;
 
   return (
     <div className="space-y-6">

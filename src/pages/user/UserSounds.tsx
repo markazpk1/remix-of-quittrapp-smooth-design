@@ -1,29 +1,74 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Play, Pause, SkipForward, Volume2, Clock, Heart, Waves, CloudRain, Wind, TreePine, Flame as Fire, Music } from "lucide-react";
-
-const sounds = [
-  { id: 1, title: "Ocean Waves", duration: "∞", icon: Waves, color: "bg-blue-500/20 text-blue-400", category: "Nature", favorite: true },
-  { id: 2, title: "Rain on Window", duration: "∞", icon: CloudRain, color: "bg-cyan-500/20 text-cyan-400", category: "Nature", favorite: true },
-  { id: 3, title: "Forest Ambience", duration: "∞", icon: TreePine, color: "bg-green-500/20 text-green-400", category: "Nature", favorite: false },
-  { id: 4, title: "Gentle Wind", duration: "∞", icon: Wind, color: "bg-teal-500/20 text-teal-400", category: "Nature", favorite: false },
-  { id: 5, title: "Campfire Crackle", duration: "∞", icon: Fire, color: "bg-orange-500/20 text-orange-400", category: "Nature", favorite: true },
-  { id: 6, title: "Deep Focus", duration: "30 min", icon: Music, color: "bg-primary/20 text-primary", category: "Focus", favorite: false },
-  { id: 7, title: "Calm Piano", duration: "45 min", icon: Music, color: "bg-purple-500/20 text-purple-400", category: "Music", favorite: false },
-  { id: 8, title: "Meditation Bells", duration: "20 min", icon: Music, color: "bg-yellow-500/20 text-yellow-400", category: "Meditation", favorite: false },
-];
-
-const categories = ["All", "Nature", "Focus", "Music", "Meditation"];
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export default function UserSounds() {
+  const [loading, setLoading] = useState(true);
+  const [soundsData, setSoundsData] = useState<any>(null);
   const [playing, setPlaying] = useState<number | null>(null);
   const [category, setCategory] = useState("All");
   const [volume, setVolume] = useState([75]);
+  const navigate = useNavigate();
 
-  const filtered = sounds.filter((s) => category === "All" || s.category === category);
+  useEffect(() => {
+    fetchSoundsData();
+  }, []);
+
+  const fetchSoundsData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.getUserSounds(token);
+      if (response.error) {
+        toast.error('Failed to load sounds');
+        return;
+      }
+      
+      setSoundsData(response);
+    } catch (error) {
+      console.error('Sounds data error:', error);
+      toast.error('Failed to load sounds');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const sounds = soundsData?.sounds || [];
+  const categories = soundsData?.categories || ["All"];
+
+  const filtered = sounds.filter((s: any) => category === "All" || s.category === category);
+
+  const getIcon = (category: string) => {
+    switch (category) {
+      case 'Nature': return Waves;
+      case 'Focus': return Music;
+      case 'Music': return Music;
+      case 'Meditation': return Music;
+      case 'Quran': return Music;
+      case 'Stories': return Music;
+      case 'Duas': return Music;
+      default: return Music;
+    }
+  };
 
   return (
     <div className="space-y-6">
