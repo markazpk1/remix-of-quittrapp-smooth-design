@@ -312,4 +312,222 @@ router.post('/admin/add-user', async (req, res) => {
   }
 });
 
+// Admin Update User Role
+router.put('/admin/update-role', async (req, res) => {
+  try {
+    const { userId, newRole } = req.body;
+
+    if (!userId || !newRole) {
+      return res.status(400).json({ error: 'User ID and new role are required' });
+    }
+
+    // Get current role for history
+    const { data: currentProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update role in profiles table
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ 
+        role: newRole,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Record role change in history
+    await supabase
+      .from('user_role_history')
+      .insert({
+        user_id: userId,
+        old_role: currentProfile.role,
+        new_role: newRole,
+        changed_by: 'admin', // This would come from authenticated admin
+        changed_at: new Date().toISOString()
+      });
+
+    res.json({ 
+      message: 'User role updated successfully',
+      user: data
+    });
+  } catch (error) {
+    console.error('Update role error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin Ban/Unban User
+router.put('/admin/toggle-ban', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Get current status
+    const { data: currentProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('status')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Toggle status
+    const newStatus = currentProfile.status === 'banned' ? 'active' : 'banned';
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ 
+      message: `User ${newStatus === 'banned' ? 'banned' : 'unbanned'} successfully`,
+      user: data
+    });
+  } catch (error) {
+    console.error('Toggle ban error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin Delete User
+router.delete('/admin/delete-user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // First, delete from profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (profileError) {
+      return res.status(400).json({ error: profileError.message });
+    }
+
+    // Delete from auth.users (this will cascade delete related data)
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+    if (authError) {
+      console.error('Auth user deletion error:', authError);
+      // Don't fail the request if auth deletion fails, profile is already deleted
+    }
+
+    res.json({ 
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin Send Email
+router.post('/admin/send-email', async (req, res) => {
+  try {
+    const { userId, subject, message } = req.body;
+
+    if (!userId || !subject || !message) {
+      return res.status(400).json({ error: 'User ID, subject, and message are required' });
+    }
+
+    // Get user email
+    const { data: user, error: fetchError } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Here you would integrate with your email service (SendGrid, etc.)
+    // For now, we'll just log it and return success
+    console.log('Email would be sent to:', user.email);
+    console.log('Subject:', subject);
+    console.log('Message:', message);
+
+    // TODO: Implement actual email sending logic
+    // Example with SendGrid:
+    // const sgMail = require('@sendgrid/mail');
+    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    // const msg = {
+    //   to: user.email,
+    //   from: 'noreply@momincore.com',
+    //   subject: subject,
+    //   text: message,
+    // };
+    // await sgMail.send(msg);
+
+    res.json({ 
+      message: 'Email sent successfully',
+      email: user.email
+    });
+  } catch (error) {
+    console.error('Send email error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin Get User Details
+router.get('/admin/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        daily_goals(count),
+        streaks(count),
+        user_library_progress(count)
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

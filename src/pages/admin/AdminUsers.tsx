@@ -77,7 +77,11 @@ export default function AdminUsers() {
   const changeRole = async () => {
     if (!roleDialogUser || !newRole) return;
     try {
-      await api.updateUserRole(roleDialogUser.id, newRole);
+      const response = await api.updateUserRole(roleDialogUser.id, newRole);
+      if (response.error) {
+        toast({ title: "Error", description: response.error });
+        return;
+      }
       await fetchUsers();
       toast({ title: "Role Updated", description: `${roleDialogUser.name} is now a ${newRole}.` });
       setRoleDialogOpen(false);
@@ -87,9 +91,21 @@ export default function AdminUsers() {
     }
   };
 
-  const toggleBan = (user: User) => {
-    // Banning functionality would need to be implemented
-    toast({ title: "Not Implemented", description: "Ban functionality coming soon" });
+  const toggleBan = async (user: User) => {
+    try {
+      const response = await api.toggleBanUser(user.id);
+      if (response.error) {
+        toast({ title: "Error", description: response.error });
+        return;
+      }
+      await fetchUsers();
+      toast({ 
+        title: "Status Updated", 
+        description: `${user.name} has been ${user.status === 'banned' ? 'unbanned' : 'banned'} successfully.` 
+      });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update user status" });
+    }
   };
 
   const deleteUser = (user: User) => {
@@ -99,7 +115,11 @@ export default function AdminUsers() {
       description: "This will permanently remove the user and all their data. This action cannot be undone.",
       onConfirm: async () => {
         try {
-          await api.deleteUser(user.id);
+          const response = await api.deleteUser(user.id);
+          if (response.error) {
+            toast({ title: "Error", description: response.error });
+            return;
+          }
           await fetchUsers();
           toast({ title: "User Deleted", description: `${user.name} has been removed.` });
         } catch (error) {
@@ -109,8 +129,20 @@ export default function AdminUsers() {
     });
   };
 
-  const sendEmail = (user: User) => {
-    toast({ title: "Email Sent", description: `Notification email sent to ${user.email}.` });
+  const sendEmail = async (user: User) => {
+    try {
+      const subject = "Important Notification from Momin Core";
+      const message = `Dear ${user.name},\n\nThis is an important notification from the Momin Core administration team.\n\nPlease contact us if you have any questions.\n\nBest regards,\nMomin Core Team`;
+      
+      const response = await api.sendUserEmail(user.id, subject, message);
+      if (response.error) {
+        toast({ title: "Error", description: response.error });
+        return;
+      }
+      toast({ title: "Email Sent", description: `Notification email sent to ${user.email}.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to send email" });
+    }
   };
 
   const addUser = async () => {

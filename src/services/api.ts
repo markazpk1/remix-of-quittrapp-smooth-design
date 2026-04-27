@@ -230,15 +230,6 @@ export const api = {
     return response.json();
   },
 
-  updateUserRole: async (id: string, role: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/users/admin/${id}/role`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
-    });
-    return response.json();
-  },
-
   deleteUser: async (id: string) => {
     const response = await fetch(`${API_BASE_URL}/api/users/admin/${id}`, {
       method: 'DELETE',
@@ -252,6 +243,38 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData),
     });
+    return response.json();
+  },
+
+  updateUserRole: async (userId: string, newRole: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/admin/update-role`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, newRole }),
+    });
+    return response.json();
+  },
+
+  toggleBanUser: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/admin/toggle-ban`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    return response.json();
+  },
+
+  sendUserEmail: async (userId: string, subject: string, message: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/admin/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, subject, message }),
+    });
+    return response.json();
+  },
+
+  getUserDetails: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/admin/user/${userId}`);
     return response.json();
   },
 
