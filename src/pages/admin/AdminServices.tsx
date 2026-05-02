@@ -60,56 +60,26 @@ export default function AdminServices() {
   const fetchServicesData = async () => {
     try {
       setLoading(true);
-      const stats = await api.getServicesStats();
+      const servicesRes = await api.getServices();
       
-      // Create services based on actual data
-      const servicesList: AppService[] = [
-        {
-          id: "library",
-          name: "Islamic Library",
-          description: "Educational content including Quran, Hadith, and Islamic studies materials.",
-          icon: BookOpen,
-          enabled: true,
-          usersActive: stats.library || 0,
-          category: "Education",
-          version: "1.0"
-        },
-        {
-          id: "threads",
-          name: "Community Threads",
-          description: "Social platform for users to share knowledge, ask questions, and discuss Islamic topics.",
-          icon: Users,
-          enabled: true,
-          usersActive: stats.threads || 0,
-          category: "Social",
-          version: "1.0"
-        },
-        {
-          id: "daily-goals",
-          name: "Daily Goals",
-          description: "Track daily prayer, Quran reading, and other Islamic practice goals.",
-          icon: Target,
-          enabled: true,
-          usersActive: stats.activeUsers || 0,
-          category: "Recovery",
-          version: "1.0"
-        },
-        {
-          id: "pomodoro",
-          name: "Productivity Timer",
-          description: "Pomodoro technique timer for focused study and work sessions.",
-          icon: TrendingUp,
-          enabled: true,
-          usersActive: stats.pomodoro || 0,
-          category: "Analytics",
-          version: "1.0"
-        }
-      ];
+      // Map API data to AppService format
+      const servicesList: AppService[] = (servicesRes.data || []).map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        icon: iconMap[service.category] || iconMap.Default,
+        enabled: service.enabled,
+        usersActive: service.usersActive,
+        category: service.category,
+        version: service.version
+      }));
 
       setServices(servicesList);
     } catch (error) {
       console.error('Failed to fetch services data:', error);
       toast({ title: "Error", description: "Failed to load services data" });
+      // Set empty array to prevent errors
+      setServices([]);
     } finally {
       setLoading(false);
     }

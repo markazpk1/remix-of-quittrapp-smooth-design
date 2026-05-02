@@ -54,9 +54,46 @@ export default function AdminLessons() {
         api.getLessonsStats(),
       ]);
 
-      setLessons(lessonsRes || []);
-      setSounds(soundsRes || []);
-      setVoices(voicesRes || []);
+      // Transform lessons data to match Lesson interface
+      const transformedLessons = (lessonsRes.data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title || 'Untitled',
+        category: item.content_type || 'unknown',
+        type: item.content_type || 'article',
+        status: 'published',
+        views: item.view_count || 0,
+        duration: item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : '0:00',
+        order: 0
+      }));
+
+      // Transform sounds data to match Sound interface
+      const transformedSounds = (soundsRes.data || []).map((item: any) => ({
+        id: item.id,
+        name: item.title || 'Untitled',
+        category: item.content_type || 'unknown',
+        duration: item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : '0:00',
+        plays: item.view_count || 0,
+        status: 'published'
+      }));
+
+      // Transform voices data to match VoiceTrack interface
+      const transformedVoices = (voicesRes.data || []).map((item: any) => ({
+        id: item.id,
+        name: item.title || 'Untitled',
+        voice: item.qari || 'Unknown',
+        language: 'English',
+        duration: item.duration ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : '0:00',
+        size: 'Unknown',
+        category: item.content_type || 'quran_recitation',
+        status: 'published',
+        plays: item.view_count || 0,
+        source: 'uploaded',
+        createdAt: new Date(item.created_at).toLocaleDateString()
+      }));
+
+      setLessons(transformedLessons);
+      setSounds(transformedSounds);
+      setVoices(transformedVoices);
     } catch (error) {
       console.error('Failed to fetch content data:', error);
       toast({ title: "Error", description: "Failed to load content data" });

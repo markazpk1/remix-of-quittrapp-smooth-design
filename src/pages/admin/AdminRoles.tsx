@@ -10,6 +10,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Shield, Plus, Users, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
+import { supabase } from "@/services/supabase";
 
 interface Role {
   id: string; 
@@ -51,38 +52,60 @@ export default function AdminRoles() {
   const fetchRoleData = async () => {
     try {
       setLoading(true);
-      const stats = await api.getRoleStats();
+      const response = await api.getRoleStats();
       
-      // Create roles based on actual data
-      const adminRole: Role = {
-        id: 'admin',
-        name: "Admin",
-        color: "bg-primary/20 text-primary border-primary/30",
-        users: stats.adminCount || 0,
-        system: true,
-        permissions: { 
-          dashboard: true, users: true, content: true, services: true, 
-          billing: true, settings: true, audit: true, support: true, 
-          roles: true, reports: true, media: true, api: true 
-        }
-      };
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Failed to load role data" });
+        return;
+      }
 
-      const userRole: Role = {
-        id: 'user',
-        name: "User",
-        color: "bg-secondary text-muted-foreground border-border/30",
-        users: stats.userCount || 0,
-        system: true,
-        permissions: { 
-          dashboard: false, users: false, content: false, services: false, 
-          billing: false, settings: false, audit: false, support: false, 
-          roles: false, reports: false, media: false, api: false 
-        }
-      };
+      // Get roles with their permissions
+      const { data: rolesWithPerms } = await supabase
+        .from('roles')
+        .select(`
+          id,
+          name,
+          color,
+          system,
+          created_at,
+          permissions (
+            permission_key,
+            enabled
+          )
+        `)
+        .order('created_at', { ascending: true });
 
-      const rolesList = [adminRole, userRole];
-      setRoles(rolesList);
-      setSelectedRole(adminRole);
+      if (!rolesWithPerms) {
+        toast({ title: "Error", description: "No roles found" });
+        return;
+      }
+
+      // Transform roles data to match interface
+      const transformedRoles: Role[] = rolesWithPerms.map((role: any) => {
+        const permissions: Record<string, boolean> = {};
+        
+        // Add all permission keys with default false
+        Object.keys(permissionLabels).forEach(key => {
+          permissions[key] = false;
+        });
+        
+        // Set actual permissions from database
+        role.permissions.forEach((perm: any) => {
+          permissions[perm.permission_key] = perm.enabled;
+        });
+
+        return {
+          id: role.id,
+          name: role.name,
+          color: role.color,
+          users: response.data?.roles?.find((r: any) => r.id === role.id)?.userCount || 0,
+          system: role.system,
+          permissions
+        };
+      });
+
+      setRoles(transformedRoles);
+      setSelectedRole(transformedRoles[0]); // Select first role by default
     } catch (error) {
       console.error('Failed to fetch role data:', error);
       toast({ title: "Error", description: "Failed to load role data" });
@@ -91,30 +114,99 @@ export default function AdminRoles() {
     }
   };
 
-  const togglePermission = (roleId: string, key: string) => {
-    setRoles((prev) => prev.map((r) => {
-      if (r.id !== roleId || r.system) return r;
-      const updated = { ...r, permissions: { ...r.permissions, [key]: !r.permissions[key] } };
-      if (selectedRole?.id === roleId) setSelectedRole(updated);
-      return updated;
-    }));
-    toast({ title: "Permission Updated" });
+  const togglePermission = async (roleId: string, key: string) => {
+    const role = roles.find(r => r.id === roleId);
+    if (!role || role.system) {
+      toast({ title: "Error", description: "System role permissions cannot be modified", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const response = await api.updateRolePermission(roleId, key, !role.permissions[key]);
+      
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Failed to update permission", variant: "destructive" });
+        return;
+      }
+
+      // Update local state
+      setRoles((prev) => prev.map((r) => {
+        if (r.id !== roleId) return r;
+        const updated = { ...r, permissions: { ...r.permissions, [key]: !r.permissions[key] } };
+        if (selectedRole?.id === roleId) setSelectedRole(updated);
+        return updated;
+      }));
+
+      toast({ title: "Success", description: "Permission updated successfully" });
+    } catch (error) {
+      console.error('Toggle permission error:', error);
+      toast({ title: "Error", description: "Failed to update permission", variant: "destructive" });
+    }
   };
 
-  const createRole = () => {
-    toast({ title: "Not Implemented", description: "Custom role creation coming soon" });
-    setAddOpen(false);
-    setNewRoleName("");
-    setNewPerms(Object.fromEntries(Object.keys(permissionLabels).map((k) => [k, false])));
+  const createRole = async () => {
+    if (!newRoleName.trim()) {
+      toast({ title: "Error", description: "Role name is required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const response = await api.createRole({
+        name: newRoleName.trim(),
+        color: "bg-secondary text-muted-foreground border-border/30",
+        permissions: newPerms
+      });
+
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Failed to create role", variant: "destructive" });
+        return;
+      }
+
+      toast({ title: "Success", description: "Role created successfully" });
+      
+      // Reset form and close dialog
+      setAddOpen(false);
+      setNewRoleName("");
+      setNewPerms(Object.fromEntries(Object.keys(permissionLabels).map((k) => [k, false])));
+      
+      // Refresh roles data
+      await fetchRoleData();
+    } catch (error) {
+      console.error('Create role error:', error);
+      toast({ title: "Error", description: "Failed to create role", variant: "destructive" });
+    }
   };
 
   const deleteRole = (id: string) => {
     const role = roles.find((r) => r.id === id);
     if (role?.system) {
-      toast({ title: "Cannot Delete", description: "System roles cannot be deleted" });
+      toast({ title: "Cannot Delete", description: "System roles cannot be deleted", variant: "destructive" });
       return;
     }
-    toast({ title: "Not Implemented", description: "Role deletion coming soon" });
+
+    setConfirm({
+      open: true,
+      title: `Delete "${role?.name}"?`,
+      description: "This will permanently remove the role and all its permissions. This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const response = await api.deleteRole(id);
+          
+          if (!response.success) {
+            toast({ title: "Error", description: response.message || "Failed to delete role", variant: "destructive" });
+            return;
+          }
+
+          toast({ title: "Success", description: "Role deleted successfully" });
+          
+          // Refresh roles data
+          await fetchRoleData();
+        } catch (error) {
+          console.error('Delete role error:', error);
+          toast({ title: "Error", description: "Failed to delete role", variant: "destructive" });
+        }
+      }
+    });
   };
 
   return (

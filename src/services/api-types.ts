@@ -1,8 +1,10 @@
 export interface ApiUser {
   id: string;
-  email: string;
-  full_name: string;
-  role: string;
+  email?: string;
+  full_name?: string;
+  name?: string;
+  role?: string;
+  plan?: string;
   created_at: string;
 }
 
@@ -31,7 +33,28 @@ export interface ApiMethods {
   toggleBanUser(userId: string): Promise<ApiResponse>;
   sendUserEmail(userId: string, subject: string, message: string): Promise<ApiResponse>;
   deleteUser(userId: string): Promise<ApiResponse>;
-  addUser(userData: any): Promise<ApiResponse>;
+  addUser(userData: {
+    name: string;
+    email: string;
+    role: string;
+    plan: string;
+  }): Promise<ApiResponse<{
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    plan: string;
+    tempPassword: string;
+  }>>;
+  
+  // Role management
+  createRole(roleData: {
+    name: string;
+    color: string;
+    permissions: Record<string, boolean>;
+  }): Promise<ApiResponse>;
+  deleteRole(roleId: string): Promise<ApiResponse>;
+  updateRolePermission(roleId: string, permissionKey: string, enabled: boolean): Promise<ApiResponse>;
   
   // Additional methods (mock implementations)
   getUserLessons(): Promise<ApiResponse>;
@@ -55,6 +78,7 @@ export interface ApiMethods {
   getRoleStats(): Promise<ApiResponse>;
   getUsersByRole(): Promise<ApiResponse>;
   getServicesStats(): Promise<ApiResponse>;
+  getServices(): Promise<ApiResponse>;
   getLibraryContent(): Promise<ApiResponse>;
   getRecentThreads(): Promise<ApiResponse>;
   getLessonsStats(): Promise<ApiResponse>;

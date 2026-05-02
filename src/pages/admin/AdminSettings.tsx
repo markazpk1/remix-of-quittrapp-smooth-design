@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Copy, Eye, EyeOff, Key, Globe, Mail, Palette, Shield, Bell, Database, RefreshCw, Upload, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { api } from "@/services/api";
+import { api } from "../../services/api";
 
 interface ApiKey { name: string; key: string; created: string; lastUsed: string; status: string; }
 interface Integration { name: string; description: string; connected: boolean; icon: string; }
@@ -49,12 +49,12 @@ export default function AdminSettings() {
         api.getSecuritySettings(),
       ]);
 
-      setGeneralSettings(generalRes);
-      setBrandingSettings(brandingRes);
-      setEmailTemplates(Array.isArray(emailsRes) ? emailsRes : []);
-      setIntegrations(Array.isArray(integrationsRes) ? integrationsRes : []);
-      setApiKeys(Array.isArray(apiKeysRes) ? apiKeysRes : []);
-      setSecuritySettings(securityRes);
+      setGeneralSettings(generalRes.data || null);
+      setBrandingSettings(brandingRes.data || null);
+      setEmailTemplates(Array.isArray(emailsRes.data) ? emailsRes.data : []);
+      setIntegrations(Array.isArray(integrationsRes.data) ? integrationsRes.data : []);
+      setApiKeys(Array.isArray(apiKeysRes.data) ? apiKeysRes.data : []);
+      setSecuritySettings(securityRes.data || null);
     } catch (error) {
       console.error('Failed to fetch settings data:', error);
       toast({ title: "Error", description: "Failed to load settings data" });
@@ -163,7 +163,7 @@ export default function AdminSettings() {
               <Card className="bg-card/60 border-border/40">
                 <CardHeader><CardTitle className="text-sm font-medium text-foreground">Feature Toggles</CardTitle></CardHeader>
                 <CardContent className="space-y-4 max-w-xl">
-                  {generalSettings?.features.map((f, i) => (
+                  {(generalSettings?.features || []).map((f, i) => (
                     <div key={f.label} className="flex items-center justify-between">
                       <div><div className="text-sm text-foreground font-medium">{f.label}</div><div className="text-xs text-muted-foreground">{f.desc}</div></div>
                       <Switch checked={f.value} onCheckedChange={() => toggleFeature(i)} />
@@ -396,7 +396,7 @@ export default function AdminSettings() {
               <Card className="bg-card/60 border-border/40">
                 <CardHeader><CardTitle className="text-sm font-medium text-foreground">Authentication & Security</CardTitle></CardHeader>
                 <CardContent className="space-y-4 max-w-xl">
-                  {securitySettings?.settings.map((f, i) => (
+                  {(securitySettings?.settings || []).map((f, i) => (
                     <div key={f.label} className="flex items-center justify-between">
                       <div>
                         <div className="text-sm text-foreground font-medium">{f.label}</div>
@@ -412,7 +412,7 @@ export default function AdminSettings() {
                 <CardContent className="space-y-4 max-w-xl">
                   <div className="space-y-2">
                     <Label>Minimum Password Length</Label>
-                    <Input type="number" defaultValue={securitySettings?.passwordPolicy.minLength || 8} className="bg-secondary/40 border-border/30 w-24" />
+                    <Input type="number" defaultValue={securitySettings?.passwordPolicy?.minLength || 8} className="bg-secondary/40 border-border/30 w-24" />
                   </div>
                   <Button onClick={saveSecuritySettings}>Save Security Settings</Button>
                 </CardContent>

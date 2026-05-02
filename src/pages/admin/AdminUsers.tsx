@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -12,7 +13,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -35,9 +36,9 @@ interface User {
 // API response interface
 interface ApiUser {
   id: string;
-  email: string;
+  email?: string;
   full_name: string;
-  role: string;
+  role?: string;
   created_at: string;
 }
 
@@ -50,7 +51,13 @@ export default function AdminUsers() {
   const [newRole, setNewRole] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "user", plan: "Starter" });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailUser, setEmailUser] = useState<User | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -62,13 +69,13 @@ export default function AdminUsers() {
       const response = await api.getAllUsers();
       if (response.success && Array.isArray(response.data)) {
         // Transform API data to match User interface
-        const transformedUsers: User[] = response.data.map((apiUser: ApiUser) => ({
+        const transformedUsers: User[] = response.data.map((apiUser: any) => ({
           id: apiUser.id,
-          name: apiUser.full_name,
-          email: apiUser.email,
-          role: apiUser.role,
-          status: 'active', // Default status
-          plan: 'Starter', // Default plan
+          name: apiUser.name || apiUser.full_name || 'Unknown User',
+          email: apiUser.email || 'No email',
+          role: apiUser.role || 'user',
+          status: apiUser.status || 'active', // Use actual status from database
+          plan: apiUser.plan || 'Starter',
           joined: new Date(apiUser.created_at).toLocaleDateString()
         }));
         setUsers(transformedUsers);
@@ -93,19 +100,46 @@ export default function AdminUsers() {
   );
 
   const changeRole = async () => {
-    if (!roleDialogUser || !newRole) return;
+    if (!roleDialogUser || !newRole) {
+      console.log('Missing data:', { roleDialogUser, newRole });
+      return;
+    }
+    
+    console.log('Updating role:', {
+      userId: roleDialogUser.id,
+      userName: roleDialogUser.name,
+      currentRole: roleDialogUser.role,
+      newRole: newRole
+    });
+    
     try {
       const response = await api.updateUserRole(roleDialogUser.id, newRole);
+      console.log('API response:', response);
+      
       if (!response.success) {
-        toast({ title: "Error", description: response.message || "Error updating role" });
+        toast({ 
+          title: "Error", 
+          description: response.message || "Error updating role",
+          variant: "destructive"
+        });
         return;
       }
+      
+      console.log('Role update successful, refreshing users...');
       await fetchUsers();
-      toast({ title: "Success", description: `${roleDialogUser.name} is now a ${newRole}.` });
+      toast({ 
+        title: "Role Updated", 
+        description: `${roleDialogUser.name} is now a ${newRole}.` 
+      });
       setRoleDialogOpen(false);
       setRoleDialogUser(null);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to update role" });
+      console.error('Change role error:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to update role",
+        variant: "destructive"
+      });
     }
   };
 
@@ -113,13 +147,35 @@ export default function AdminUsers() {
     try {
       const response = await api.toggleBanUser(user.id);
       if (!response.success) {
-        toast({ title: "Error", description: response.message || "Error updating user status" });
+        toast({ 
+          title: "Error", 
+          description: response.message || "Error updating user status",
+          variant: "destructive"
+        });
         return;
       }
-      await fetchUsers();
-      toast({ title: "Success", description: `${user.name} has been ${user.status === 'banned' ? 'unbanned' : 'banned'} successfully.` });
+      
+      // Check if the ban functionality is simulated or real
+      if (response.message.includes('simulated')) {
+        toast({ 
+          title: "Status Updated", 
+          description: `${user.name}'s ban status toggled (simulated - run SQL to add status column for persistence)` 
+        });
+      } else {
+        // Real ban functionality - refresh the user list
+        await fetchUsers();
+        toast({ 
+          title: "Status Updated", 
+          description: response.message 
+        });
+      }
     } catch (error) {
-      toast({ title: "Error", description: "Failed to update user status" });
+      console.error('Toggle ban error:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to update user status",
+        variant: "destructive"
+      });
     }
   };
 
@@ -132,52 +188,150 @@ export default function AdminUsers() {
         try {
           const response = await api.deleteUser(user.id);
           if (!response.success) {
-            toast({ title: "Error", description: response.message || "Error deleting user" });
+            toast({ 
+              title: "Error", 
+              description: response.message || "Error deleting user",
+              variant: "destructive"
+            });
             return;
           }
           await fetchUsers();
-          toast({ title: "User Deleted", description: `${user.name} has been removed.` });
+          toast({ 
+            title: "User Deleted", 
+            description: `${user.name} has been removed successfully.` 
+          });
         } catch (error) {
-          toast({ title: "Error", description: "Failed to delete user" });
+          console.error('Delete user error:', error);
+          toast({ 
+            title: "Error", 
+            description: "Failed to delete user",
+            variant: "destructive"
+          });
         }
       },
     });
   };
 
-  const sendEmail = async (user: User) => {
-    try {
-      const subject = "Important Notification from Momin Core";
-      const message = `Dear ${user.name},\n\nThis is an important notification from the Momin Core administration team.\n\nPlease contact us if you have any questions.\n\nBest regards,\nMomin Core Team`;
-      
-      const response = await api.sendUserEmail(user.id, subject, message);
-      if (!response.success) {
-        toast({ title: "Error", description: response.message || "Error sending email" });
-        return;
-      }
-      toast({ title: "Success", description: `Notification email sent to ${user.email}.` });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to send email" });
-    }
+  const sendEmail = (user: User) => {
+    setEmailUser(user);
+    setEmailSubject("");
+    setEmailMessage(`Dear ${user.name},\n\n`);
+    setEmailDialogOpen(true);
   };
 
-  const addUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.role || !newUser.plan) {
-      toast({ title: "Error", description: "All fields are required" });
+  const sendCustomEmail = async () => {
+    if (!emailUser || !emailSubject.trim() || !emailMessage.trim()) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Subject and message are required",
+        variant: "destructive"
+      });
       return;
     }
 
     try {
-      const response = await api.addUser(newUser);
+      setIsSendingEmail(true);
+      
+      const response = await api.sendUserEmail(emailUser.id, emailSubject, emailMessage);
+      if (!response.success) {
+        toast({ 
+          title: "Error", 
+          description: response.message || "Error sending email",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      toast({ 
+        title: response.message.includes('SMTP not configured') ? "Email Logged" : "Email Sent", 
+        description: response.message
+      });
+      
+      // Reset form and close dialog
+      setEmailDialogOpen(false);
+      setEmailUser(null);
+      setEmailSubject("");
+      setEmailMessage("");
+    } catch (error) {
+      console.error('Send email error:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to send email",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const addUser = async () => {
+    // Enhanced form validation
+    const errors: string[] = [];
+    
+    if (!newUser.name.trim()) {
+      errors.push("Name is required");
+    } else if (newUser.name.trim().length < 2) {
+      errors.push("Name must be at least 2 characters");
+    }
+    
+    if (!newUser.email.trim()) {
+      errors.push("Email is required");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) {
+      errors.push("Please enter a valid email address");
+    }
+    
+    if (!newUser.role) {
+      errors.push("Role is required");
+    }
+    
+    if (!newUser.plan) {
+      errors.push("Plan is required");
+    }
+
+    if (errors.length > 0) {
+      toast({ 
+        title: "Validation Error", 
+        description: errors.join(", ")
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingUser(true);
+      
+      const response = await api.addUser({
+        name: newUser.name.trim(),
+        email: newUser.email.trim().toLowerCase(),
+        role: newUser.role,
+        plan: newUser.plan
+      });
       
       if (!response.success) {
-        toast({ title: "Error", description: response.message || "Error creating user" });
+        toast({ 
+          title: "Error", 
+          description: response.message || "Error creating user",
+          variant: "destructive"
+        });
         return;
       }
 
       // Show success message with temporary password
+      const tempPassword = response.data?.tempPassword || 'N/A';
       toast({ 
-        title: "User Created", 
-        description: `User created with temporary password: ${response.data?.tempPassword || 'N/A'}`
+        title: "User Created Successfully", 
+        description: `${newUser.name} has been created. Temporary password: ${tempPassword}`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(tempPassword);
+              toast({ title: "Copied", description: "Password copied to clipboard" });
+            }}
+          >
+            Copy Password
+          </Button>
+        )
       });
 
       // Reset form and close dialog
@@ -188,7 +342,13 @@ export default function AdminUsers() {
       await fetchUsers();
     } catch (error) {
       console.error('Add user error:', error);
-      toast({ title: "Error", description: "Failed to create user" });
+      toast({ 
+        title: "Error", 
+        description: "Failed to create user. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -219,30 +379,91 @@ export default function AdminUsers() {
           <h1 className="font-display text-2xl font-bold text-foreground">Users</h1>
           <p className="text-sm text-muted-foreground">Manage user accounts, roles, and permissions.</p>
         </div>
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <Dialog 
+          open={addDialogOpen} 
+          onOpenChange={(open) => {
+            if (!open) {
+              // Reset form when dialog is closed
+              setNewUser({ name: "", email: "", role: "user", plan: "Starter" });
+              setIsCreatingUser(false);
+            }
+            setAddDialogOpen(open);
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="bg-primary text-primary-foreground"><UserPlus className="w-4 h-4 mr-2" /> Add User</Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border/40">
             <DialogHeader><DialogTitle className="text-foreground">Add New User</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div className="space-y-2"><Label>Full Name</Label><Input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="John Doe" className="bg-secondary/40 border-border/30" /></div>
-              <div className="space-y-2"><Label>Email</Label><Input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="john@email.com" className="bg-secondary/40 border-border/30" /></div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input 
+                  id="name"
+                  value={newUser.name} 
+                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} 
+                  placeholder="Enter full name" 
+                  className="bg-secondary/40 border-border/30"
+                  disabled={isCreatingUser}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input 
+                  id="email"
+                  type="email"
+                  value={newUser.email} 
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} 
+                  placeholder="user@example.com" 
+                  className="bg-secondary/40 border-border/30"
+                  disabled={isCreatingUser}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>Role</Label>
-                  <Select value={newUser.role} onValueChange={(v) => setNewUser({ ...newUser, role: v })}>
-                    <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-card border-border/40"><SelectItem value="user">User</SelectItem><SelectItem value="moderator">Moderator</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select value={newUser.role} onValueChange={(v) => setNewUser({ ...newUser, role: v })} disabled={isCreatingUser}>
+                    <SelectTrigger className="bg-secondary/40 border-border/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border/40">
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="moderator">Moderator</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Plan</Label>
-                  <Select value={newUser.plan} onValueChange={(v) => setNewUser({ ...newUser, plan: v })}>
-                    <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-card border-border/40"><SelectItem value="Starter">Starter</SelectItem><SelectItem value="Pro">Pro</SelectItem><SelectItem value="Enterprise">Enterprise</SelectItem></SelectContent>
+                <div className="space-y-2">
+                  <Label htmlFor="plan">Plan</Label>
+                  <Select value={newUser.plan} onValueChange={(v) => setNewUser({ ...newUser, plan: v })} disabled={isCreatingUser}>
+                    <SelectTrigger className="bg-secondary/40 border-border/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border/40">
+                      <SelectItem value="Starter">Starter</SelectItem>
+                      <SelectItem value="Pro">Pro</SelectItem>
+                      <SelectItem value="Enterprise">Enterprise</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button onClick={addUser} className="w-full">Create User</Button>
+              <Button 
+                onClick={addUser} 
+                className="w-full" 
+                disabled={isCreatingUser}
+              >
+                {isCreatingUser ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Creating User...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Create User
+                  </>
+                )}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -257,6 +478,71 @@ export default function AdminUsers() {
               <SelectContent className="bg-card border-border/40"><SelectItem value="user">User</SelectItem><SelectItem value="moderator">Moderator</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent>
             </Select>
             <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button onClick={changeRole}>Save</Button></DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={emailDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEmailDialogOpen(false);
+          setEmailUser(null);
+          setEmailSubject("");
+          setEmailMessage("");
+        }
+      }}>
+        <DialogContent className="bg-card border-border/40 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Send Email to {emailUser?.name}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Compose and send an email to {emailUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Input
+                id="subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Enter email subject"
+                className="bg-secondary/40 border-border/30"
+                disabled={isSendingEmail}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="message">Message</Label>
+              <Textarea
+                id="message"
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                placeholder="Type your message here..."
+                className="bg-secondary/40 border-border/30 min-h-[150px]"
+                disabled={isSendingEmail}
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <DialogClose asChild>
+                <Button variant="outline" disabled={isSendingEmail}>
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button 
+                onClick={sendCustomEmail} 
+                disabled={isSendingEmail || !emailSubject.trim() || !emailMessage.trim()}
+              >
+                {isSendingEmail ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>

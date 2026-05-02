@@ -17,7 +17,7 @@ import {
   Copy, Eye, Ban, CheckCircle, Download, Send, Award, ArrowUpRight, Link2, BarChart3,
   CreditCard, Clock, XCircle, RefreshCw
 } from "lucide-react";
-import { api } from "@/services/api";
+import { api } from "../../services/api";
 
 interface Affiliate {
   id: string;
@@ -128,11 +128,11 @@ export default function AdminAffiliates() {
         api.getAffiliateTiers(),
       ]);
 
-      setAffiliates(Array.isArray(affiliatesRes) ? affiliatesRes : []);
-      setStats(statsRes || { total: 0, active: 0, totalRevenue: 0, pendingPayouts: 0, totalClicks: 0, totalConversions: 0 });
-      setPayouts(Array.isArray(payoutsRes) ? payoutsRes : []);
-      setReferrals(Array.isArray(referralsRes) ? referralsRes : []);
-      setTiers(Array.isArray(tiersRes) ? tiersRes : []);
+      setAffiliates(Array.isArray(affiliatesRes?.data) ? affiliatesRes.data : []);
+      setStats(statsRes?.data || { total: 0, active: 0, totalRevenue: 0, pendingPayouts: 0, totalClicks: 0, totalConversions: 0 });
+      setPayouts(Array.isArray(payoutsRes?.data) ? payoutsRes.data : []);
+      setReferrals(Array.isArray(referralsRes?.data) ? referralsRes.data : []);
+      setTiers(Array.isArray(tiersRes?.data) ? tiersRes.data : []);
     } catch (error) {
       console.error('Failed to fetch affiliate data:', error);
       toast({ title: "Error", description: "Failed to load affiliate data" });
@@ -250,10 +250,10 @@ export default function AdminAffiliates() {
           [
             { label: "Total Affiliates", value: stats.total, icon: Users, color: "text-primary" },
             { label: "Active", value: stats.active, icon: CheckCircle, color: "text-emerald-400" },
-            { label: "Total Clicks", value: stats.totalClicks.toLocaleString(), icon: MousePointerClick, color: "text-blue-400" },
-            { label: "Conversions", value: stats.totalConversions, icon: TrendingUp, color: "text-purple-400" },
-            { label: "Total Earned", value: `$${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: "text-yellow-400" },
-            { label: "Pending Payouts", value: `$${stats.pendingPayouts.toLocaleString()}`, icon: Clock, color: "text-orange-400" },
+            { label: "Total Clicks", value: (stats.totalClicks || 0).toLocaleString(), icon: MousePointerClick, color: "text-blue-400" },
+            { label: "Conversions", value: stats.totalConversions || 0, icon: TrendingUp, color: "text-purple-400" },
+            { label: "Total Earned", value: `$${(stats.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, color: "text-yellow-400" },
+            { label: "Pending Payouts", value: `$${(stats.pendingPayouts || 0).toLocaleString()}`, icon: Clock, color: "text-orange-400" },
           ].map(s => (
             <Card key={s.label} className="bg-card border-border/40">
               <CardContent className="p-4 flex flex-col items-center text-center gap-1">
@@ -347,9 +347,9 @@ export default function AdminAffiliates() {
                       <TableCell>{tierBadge(a.tier)}</TableCell>
                       <TableCell>{statusBadge(a.status)}</TableCell>
                       <TableCell className="text-right font-medium">{a.commissionRate}%</TableCell>
-                      <TableCell className="text-right">{a.totalClicks.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{(a.totalClicks || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-right">{a.totalConversions}</TableCell>
-                      <TableCell className="text-right font-medium text-emerald-400">${a.totalEarned.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-400">${(a.totalEarned || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-right text-yellow-400">${a.pendingBalance}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -657,13 +657,13 @@ export default function AdminAffiliates() {
                   <div><span className="text-muted-foreground">Last Active:</span> <span className="text-foreground">{detailAffiliate.lastActiveAt}</span></div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 pt-2">
-                  <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-foreground">{detailAffiliate.totalClicks.toLocaleString()}</div><div className="text-xs text-muted-foreground">Clicks</div></CardContent></Card>
+                  <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-foreground">{(detailAffiliate.totalClicks || 0).toLocaleString()}</div><div className="text-xs text-muted-foreground">Clicks</div></CardContent></Card>
                   <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-foreground">{detailAffiliate.totalSignups}</div><div className="text-xs text-muted-foreground">Signups</div></CardContent></Card>
                   <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-foreground">{detailAffiliate.totalConversions}</div><div className="text-xs text-muted-foreground">Conversions</div></CardContent></Card>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
-                  <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-emerald-400">${detailAffiliate.totalEarned.toLocaleString()}</div><div className="text-xs text-muted-foreground">Earned</div></CardContent></Card>
-                  <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-foreground">${detailAffiliate.totalPaid.toLocaleString()}</div><div className="text-xs text-muted-foreground">Paid</div></CardContent></Card>
+                  <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-emerald-400">${(detailAffiliate.totalEarned || 0).toLocaleString()}</div><div className="text-xs text-muted-foreground">Earned</div></CardContent></Card>
+                  <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-foreground">${(detailAffiliate.totalPaid || 0).toLocaleString()}</div><div className="text-xs text-muted-foreground">Paid</div></CardContent></Card>
                   <Card className="bg-muted/30 border-border/40"><CardContent className="p-3 text-center"><div className="text-lg font-bold text-yellow-400">${detailAffiliate.pendingBalance}</div><div className="text-xs text-muted-foreground">Pending</div></CardContent></Card>
                 </div>
                 <div className="text-xs text-muted-foreground pt-1">Conversion rate: {detailAffiliate.totalClicks > 0 ? ((detailAffiliate.totalConversions / detailAffiliate.totalClicks) * 100).toFixed(1) : 0}%</div>
