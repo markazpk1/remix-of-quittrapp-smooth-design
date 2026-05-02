@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import { Pencil, Trash2, Plus, GripVertical, Star, Eye, Globe, Search } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { api } from "@/services/api";
+import { toast } from "../../hooks/use-toast";
+import { api } from "../../services/api";
 
 interface BlogPost { id: string; title: string; status: string; date: string; views: number; author: string; category: string; }
 interface FaqItem { id: string; question: string; answer: string; category: string; order: number; }
@@ -138,8 +139,16 @@ export default function AdminContent() {
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-foreground">Page Sections</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {loading ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center justify-between py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-4 h-4" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                      <Skeleton className="w-12 h-6" />
+                    </div>
+                  ))}
                 </div>
               ) : sections.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
@@ -184,10 +193,22 @@ export default function AdminContent() {
             <CardContent className="p-0">
               <div className="divide-y divide-border/20">
                 {loading ? (
-                  <div className="flex items-center justify-center py-20">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-4 border-b border-border/20">
+                        <div className="flex-1">
+                          <Skeleton className="h-5 w-48 mb-2" />
+                          <Skeleton className="h-4 w-32 mb-1" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-6 w-16" />
+                          <Skeleton className="h-8 w-8" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : filteredPosts.length === 0 ? (
+                ) : posts.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8">
                     No blog posts found
                   </div>
@@ -233,8 +254,14 @@ export default function AdminContent() {
           </div>
           <div className="space-y-3">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="p-4 border-b border-border/20">
+                    <Skeleton className="h-5 w-48 mb-2" />
+                    <Skeleton className="h-4 w-full mb-1" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                ))}
               </div>
             ) : faqs.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
@@ -278,8 +305,19 @@ export default function AdminContent() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {loading ? (
-              <div className="col-span-2 flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+              <div className="col-span-2 space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="p-4 border border-border/20 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-5 w-32 mb-2" />
+                        <Skeleton className="h-4 w-full mb-1" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : testimonials.length === 0 ? (
               <div className="col-span-2 text-center text-muted-foreground py-8">
@@ -320,8 +358,14 @@ export default function AdminContent() {
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-foreground">Page SEO Settings</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {loading ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-4 border border-border/20 rounded-lg">
+                      <Skeleton className="h-5 w-48 mb-2" />
+                      <Skeleton className="h-4 w-full mb-1" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                  ))}
                 </div>
               ) : seoPages.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">

@@ -7,10 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import { Search, MoreHorizontal, Flag, Trash2, Eye, Ban, CheckCircle, MessageSquare, ThumbsUp, Users, AlertTriangle, Shield } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { api } from "@/services/api";
+import { toast } from "../../hooks/use-toast";
+import { api } from "../../services/api";
 
 interface Post {
   id: string; user: string; avatar: string; content: string; likes: number; comments: number; time: string; status: string; reported: boolean; userId: string;
@@ -89,8 +90,14 @@ export default function AdminCommunity() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {loading ? (
-          <div className="col-span-4 flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+          <div className="col-span-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="p-4 border border-border/20 rounded-lg">
+                <Skeleton className="h-8 w-8 mb-2" />
+                <Skeleton className="h-6 w-16 mb-1" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
           </div>
         ) : (
           [
@@ -129,8 +136,19 @@ export default function AdminCommunity() {
 
           <div className="space-y-3">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="p-4 border border-border/20 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-32 mb-2" />
+                        <Skeleton className="h-4 w-full mb-1" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <>
@@ -176,44 +194,49 @@ export default function AdminCommunity() {
 
         <TabsContent value="reports" className="space-y-3">
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-4 border border-border/20 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                  <Skeleton className="h-4 w-full mb-1" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
             </div>
+          ) : reports.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No reports found.</p>
           ) : (
-            <>
-              {reports.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No reports found.</p>
-              ) : (
-                reports.map((report) => (
-                  <Card key={report.id} className={`bg-card/60 border-border/40 ${report.status === "pending" ? "border-yellow-500/30" : ""}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full ${report.status === "pending" ? "bg-yellow-400" : "bg-green-400"}`} />
-                          <div>
-                            <div className="text-sm text-foreground"><span className="font-medium">{report.reporter}</span> reported: <span className="text-muted-foreground">{report.reason}</span></div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">{report.time}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`text-[10px] capitalize ${report.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-green-500/20 text-green-400 border-green-500/30"}`}>{report.status}</Badge>
-                          {report.status === "pending" && (
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Dismiss" onClick={() => resolveReport(report.id)}>
-                                <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Remove post" onClick={() => deleteReportedPost(report)}>
-                                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
+            reports.map((report) => (
+              <Card key={report.id} className={`bg-card/60 border-border/40 ${report.status === "pending" ? "border-yellow-500/30" : ""}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${report.status === "pending" ? "bg-yellow-400" : "bg-green-400"}`} />
+                      <div>
+                        <div className="text-sm text-foreground"><span className="font-medium">{report.reporter}</span> reported: <span className="text-muted-foreground">{report.reason}</span></div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">{report.time}</div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`text-[10px] capitalize ${report.status === "pending" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" : "bg-green-500/20 text-green-400 border-green-500/30"}`}>{report.status}</Badge>
+                      {report.status === "pending" && (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Dismiss" onClick={() => resolveReport(report.id)}>
+                            <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Remove post" onClick={() => deleteReportedPost(report)}>
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
         </TabsContent>
       </Tabs>

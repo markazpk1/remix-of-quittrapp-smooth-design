@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -16,10 +17,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import { Search, MoreHorizontal, Shield, Ban, Mail, Trash2, UserPlus } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import { api } from "@/services/api";
+import { toast } from "../../hooks/use-toast";
+import { api } from "../../services/api";
 
 interface User {
   id: string;
@@ -29,6 +30,15 @@ interface User {
   status: string;
   plan: string;
   joined: string;
+}
+
+// API response interface
+interface ApiUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  created_at: string;
 }
 
 export default function AdminUsers() {
@@ -49,14 +59,22 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const data = await api.getAllUsers();
-      if (Array.isArray(data)) {
-        setUsers(data);
-      } else if (data.error) {
-        console.error('API error:', data.error);
-        toast({ title: "Error", description: data.error });
-        setUsers([]);
+      const response = await api.getAllUsers();
+      if (response.success && Array.isArray(response.data)) {
+        // Transform API data to match User interface
+        const transformedUsers: User[] = response.data.map((apiUser: ApiUser) => ({
+          id: apiUser.id,
+          name: apiUser.full_name,
+          email: apiUser.email,
+          role: apiUser.role,
+          status: 'active', // Default status
+          plan: 'Starter', // Default plan
+          joined: new Date(apiUser.created_at).toLocaleDateString()
+        }));
+        setUsers(transformedUsers);
       } else {
+        console.error('API error:', response.message);
+        toast({ title: "Error", description: response.message || "Error loading users" });
         setUsers([]);
       }
     } catch (error) {
@@ -78,12 +96,12 @@ export default function AdminUsers() {
     if (!roleDialogUser || !newRole) return;
     try {
       const response = await api.updateUserRole(roleDialogUser.id, newRole);
-      if (response.error) {
-        toast({ title: "Error", description: response.error });
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Error updating role" });
         return;
       }
       await fetchUsers();
-      toast({ title: "Role Updated", description: `${roleDialogUser.name} is now a ${newRole}.` });
+      toast({ title: "Success", description: `${roleDialogUser.name} is now a ${newRole}.` });
       setRoleDialogOpen(false);
       setRoleDialogUser(null);
     } catch (error) {
@@ -94,15 +112,12 @@ export default function AdminUsers() {
   const toggleBan = async (user: User) => {
     try {
       const response = await api.toggleBanUser(user.id);
-      if (response.error) {
-        toast({ title: "Error", description: response.error });
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Error updating user status" });
         return;
       }
       await fetchUsers();
-      toast({ 
-        title: "Status Updated", 
-        description: `${user.name} has been ${user.status === 'banned' ? 'unbanned' : 'banned'} successfully.` 
-      });
+      toast({ title: "Success", description: `${user.name} has been ${user.status === 'banned' ? 'unbanned' : 'banned'} successfully.` });
     } catch (error) {
       toast({ title: "Error", description: "Failed to update user status" });
     }
@@ -116,8 +131,8 @@ export default function AdminUsers() {
       onConfirm: async () => {
         try {
           const response = await api.deleteUser(user.id);
-          if (response.error) {
-            toast({ title: "Error", description: response.error });
+          if (!response.success) {
+            toast({ title: "Error", description: response.message || "Error deleting user" });
             return;
           }
           await fetchUsers();
@@ -135,11 +150,11 @@ export default function AdminUsers() {
       const message = `Dear ${user.name},\n\nThis is an important notification from the Momin Core administration team.\n\nPlease contact us if you have any questions.\n\nBest regards,\nMomin Core Team`;
       
       const response = await api.sendUserEmail(user.id, subject, message);
-      if (response.error) {
-        toast({ title: "Error", description: response.error });
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Error sending email" });
         return;
       }
-      toast({ title: "Email Sent", description: `Notification email sent to ${user.email}.` });
+      toast({ title: "Success", description: `Notification email sent to ${user.email}.` });
     } catch (error) {
       toast({ title: "Error", description: "Failed to send email" });
     }
@@ -154,15 +169,15 @@ export default function AdminUsers() {
     try {
       const response = await api.addUser(newUser);
       
-      if (response.error) {
-        toast({ title: "Error", description: response.error });
+      if (!response.success) {
+        toast({ title: "Error", description: response.message || "Error creating user" });
         return;
       }
 
       // Show success message with temporary password
       toast({ 
-        title: "User Created Successfully", 
-        description: `User created with temporary password: ${response.tempPassword}` 
+        title: "User Created", 
+        description: `User created with temporary password: ${response.data?.tempPassword || 'N/A'}`
       });
 
       // Reset form and close dialog
@@ -258,8 +273,18 @@ export default function AdminUsers() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center space-x-4 p-4 border-b border-border/20">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-8 w-8" />
+                </div>
+              ))}
             </div>
           ) : (
             <Table>

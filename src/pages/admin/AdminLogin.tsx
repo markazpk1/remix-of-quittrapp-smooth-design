@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Shield } from "lucide-react";
-import { api } from "@/services/api";
+import { api } from "../../services/api";
 import { toast } from "sonner";
 
 export default function AdminLogin() {
@@ -34,21 +34,27 @@ export default function AdminLogin() {
       const response = await api.adminLogin(email, password);
       console.log('Admin login response:', response);
       
-      if (response.error) {
-        if (response.error.includes('Access denied')) {
+      if (!response.success) {
+        const errorMessage = response.message || 'Login failed';
+        if (errorMessage.includes('Access denied')) {
           toast.error("Invalid admin credentials. Please check the development credentials above.");
         } else {
-          toast.error(response.error);
+          toast.error(errorMessage);
         }
         return;
       }
       toast.success("Admin login successful!");
-      localStorage.setItem('adminSession', JSON.stringify({ 
-        token: response.session?.access_token,
-        user: response.user,
-        isAdmin: true
-      }));
-      navigate("/admin");
+      const adminResponse = response as any;
+      if (adminResponse.success && adminResponse.user) {
+        localStorage.setItem('adminSession', JSON.stringify({ 
+          token: 'mock-admin-token',
+          user: adminResponse.user,
+          isAdmin: true
+        }));
+        navigate("/admin");
+      } else {
+        toast.error("Login failed. Please try again.");
+      }
     } catch (error: any) {
       console.error('Admin login error:', error);
       toast.error(error.message || "Failed to login. Please try again.");
@@ -112,7 +118,7 @@ export default function AdminLogin() {
             <div className="mt-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
               <p className="text-xs text-purple-300 font-medium">Development Credentials:</p>
               <p className="text-xs text-purple-200 mt-1">Email: admin@momincore.com</p>
-              <p className="text-xs text-purple-200">Password: admin123456</p>
+              <p className="text-xs text-purple-200">Password: admin123</p>
             </div>
           </div>
 

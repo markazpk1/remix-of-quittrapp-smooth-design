@@ -5,28 +5,33 @@
 -- Run them in your Supabase SQL editor for direct database management
 
 -- ========================================
--- 1. TABLE CREATION (if not exists)
+-- 1. ALTER EXISTING TABLES (add missing admin fields)
 -- ========================================
 
--- Extended profiles table with admin fields
-CREATE TABLE IF NOT EXISTS profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    full_name TEXT,
-    email TEXT,
-    role TEXT DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
-    plan TEXT DEFAULT 'Starter' CHECK (plan IN ('Starter', 'Pro', 'Enterprise')),
-    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'banned', 'inactive')),
-    city TEXT,
-    madhab TEXT,
-    age_confirmed BOOLEAN DEFAULT false,
-    shariah_rules_agreed BOOLEAN DEFAULT false,
-    email_confirmed BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by_admin BOOLEAN DEFAULT false,
-    banned_at TIMESTAMP WITH TIME ZONE,
-    banned_by UUID REFERENCES profiles(id),
-    ban_reason TEXT
+-- Add missing columns to existing profiles table
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS email TEXT,
+ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
+ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'Starter' CHECK (plan IN ('Starter', 'Pro', 'Enterprise')),
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active' CHECK (status IN ('active', 'banned', 'inactive')),
+ADD COLUMN IF NOT EXISTS email_confirmed BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS created_by_admin BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS banned_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS banned_by UUID REFERENCES profiles(id),
+ADD COLUMN IF NOT EXISTS ban_reason TEXT;
+
+-- Update email from auth.users if not set
+UPDATE profiles 
+SET email = (
+  SELECT raw_user_meta_data->>'email' 
+  FROM auth.users 
+  WHERE auth.users.id = profiles.id
+)
+WHERE email IS NULL AND EXISTS (
+  SELECT 1 
+  FROM auth.users 
+  WHERE auth.users.id = profiles.id 
+  AND raw_user_meta_data->>'email' IS NOT NULL
 );
 
 -- User role history tracking
@@ -78,7 +83,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
 -- 2. USER CREATION QUERIES
 -- ========================================
 
--- Create new user manually (after Supabase auth creation)
+-- Create new user profile (after Supabase auth creation)
 INSERT INTO profiles (
     id, 
     full_name, 
@@ -162,14 +167,15 @@ ORDER BY urh.changed_at DESC;
 SELECT 
     id,
     full_name,
-    email,
+    COALESCE(email, au.email) as email,
     role,
     plan,
     status,
     created_at
-FROM profiles
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE role = 'admin'
-ORDER BY created_at DESC;
+ORDER BY p.created_at DESC;
 
 -- ========================================
 -- 4. USER BAN/UNBAN MANAGEMENT
@@ -197,32 +203,34 @@ WHERE id = 'USER_UUID';
 
 -- Get banned users
 SELECT 
-    id,
-    full_name,
-    email,
-    role,
-    plan,
-    banned_at,
-    ban_reason,
+    p.id,
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.role,
+    p.plan,
+    p.banned_at,
+    p.ban_reason,
     p2.full_name as banned_by_name
 FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
 LEFT JOIN profiles p2 ON p.banned_by = p2.id
 WHERE p.status = 'banned'
 ORDER BY p.banned_at DESC;
 
 -- Get ban history
 SELECT 
-    full_name,
-    email,
-    banned_at,
-    ban_reason,
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.banned_at,
+    p.ban_reason,
     CASE 
-        WHEN status = 'banned' THEN 'Currently Banned'
+        WHEN p.status = 'banned' THEN 'Currently Banned'
         ELSE 'Previously Banned (Now Unbanned)'
     END as ban_status
-FROM profiles
-WHERE banned_at IS NOT NULL
-ORDER BY banned_at DESC;
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
+WHERE p.banned_at IS NOT NULL
+ORDER BY p.banned_at DESC;
 
 -- ========================================
 -- 5. USER DELETION
@@ -237,12 +245,13 @@ WHERE id = 'USER_UUID';
 SELECT 
     id,
     full_name,
-    email,
+    COALESCE(email, au.email) as email,
     created_at,
     updated_at
-FROM profiles
-WHERE status = 'inactive'
-ORDER BY updated_at DESC;
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
+WHERE p.status = 'inactive'
+ORDER BY p.updated_at DESC;
 
 -- Hard delete (use with extreme caution)
 -- This will cascade delete all related data
@@ -254,59 +263,63 @@ DELETE FROM profiles WHERE id = 'USER_UUID';
 
 -- Search users by name or email
 SELECT 
-    id,
-    full_name,
-    email,
-    role,
-    plan,
-    status,
-    created_at
-FROM profiles
+    p.id,
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.role,
+    p.plan,
+    p.status,
+    p.created_at
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE 
-    full_name ILIKE '%search_term%' OR 
-    email ILIKE '%search_term%'
-ORDER BY full_name;
+    p.full_name ILIKE '%search_term%' OR 
+    COALESCE(p.email, au.email) ILIKE '%search_term%'
+ORDER BY p.full_name;
 
 -- Get users by multiple criteria
 SELECT 
-    id,
-    full_name,
-    email,
-    role,
-    plan,
-    status,
-    city,
-    madhab,
-    created_at
-FROM profiles
+    p.id,
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.role,
+    p.plan,
+    p.status,
+    p.city,
+    p.madhab,
+    p.created_at
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE 
-    role = 'user'
-    AND status = 'active'
-    AND plan = 'Pro'
-    AND created_at >= '2024-01-01'
-ORDER BY created_at DESC;
+    p.role = 'user'
+    AND p.status = 'active'
+    AND p.plan = 'Pro'
+    AND p.created_at >= '2024-01-01'
+ORDER BY p.created_at DESC;
 
 -- Get users by city
 SELECT 
-    full_name,
-    email,
-    role,
-    status,
-    city
-FROM profiles
-WHERE city = 'New York'
-ORDER BY full_name;
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.role,
+    p.status,
+    p.city
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
+WHERE p.city = 'New York'
+ORDER BY p.full_name;
 
 -- Get users by madhab
 SELECT 
-    full_name,
-    email,
-    role,
-    status,
-    madhab
-FROM profiles
-WHERE madhab = 'Hanafi'
-ORDER BY full_name;
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.role,
+    p.status,
+    p.madhab
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
+WHERE p.madhab = 'Hanafi'
+ORDER BY p.full_name;
 
 -- ========================================
 -- 7. USER STATISTICS AND REPORTS
@@ -360,26 +373,28 @@ ORDER BY created_at::date;
 -- Most active users (based on login history)
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     p.role,
     COUNT(lh.id) as login_count,
     MAX(lh.login_time) as last_login
 FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
 LEFT JOIN user_login_history lh ON p.id = lh.user_id
 WHERE p.status = 'active'
-GROUP BY p.id, p.full_name, p.email, p.role
+GROUP BY p.id, p.full_name, au.email, p.role
 ORDER BY login_count DESC
 LIMIT 10;
 
 -- Users with most role changes
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     COUNT(urh.id) as role_changes,
     MAX(urh.changed_at) as last_role_change
 FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
 LEFT JOIN user_role_history urh ON p.id = urh.user_id
-GROUP BY p.id, p.full_name, p.email
+GROUP BY p.id, p.full_name, au.email
 HAVING COUNT(urh.id) > 0
 ORDER BY role_changes DESC;
 
@@ -422,7 +437,7 @@ ORDER BY el.sent_at DESC;
 -- Get all email logs
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     el.subject,
     el.sent_at,
     el.status,
@@ -430,6 +445,7 @@ SELECT
 FROM email_logs el
 JOIN profiles p ON el.user_id = p.id
 JOIN profiles p2 ON el.sent_by = p2.id
+LEFT JOIN auth.users au ON p.id = au.id
 ORDER BY el.sent_at DESC;
 
 -- ========================================
@@ -467,12 +483,13 @@ ORDER BY created_at DESC;
 -- Get recent admin activities
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     action,
     details,
     created_at
 FROM user_activity_logs ual
 JOIN profiles p ON ual.user_id = p.id
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE p.role IN ('admin', 'moderator')
 ORDER BY ual.created_at DESC
 LIMIT 50;
@@ -523,24 +540,25 @@ CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at);
 
 -- Export all user data
 SELECT 
-    id,
-    full_name,
-    email,
-    role,
-    plan,
-    status,
-    city,
-    madhab,
-    age_confirmed,
-    shariah_rules_agreed,
-    email_confirmed,
-    created_at,
-    updated_at,
-    created_by_admin,
-    banned_at,
-    ban_reason
-FROM profiles
-ORDER BY created_at;
+    p.id,
+    p.full_name,
+    COALESCE(p.email, au.email) as email,
+    p.role,
+    p.plan,
+    p.status,
+    p.city,
+    p.madhab,
+    p.age_confirmed,
+    p.shariah_rules_agreed,
+    p.email_confirmed,
+    p.created_at,
+    p.updated_at,
+    p.created_by_admin,
+    p.banned_at,
+    p.ban_reason
+FROM profiles p
+LEFT JOIN auth.users au ON p.id = au.id
+ORDER BY p.created_at;
 
 -- Export user statistics
 SELECT 
@@ -559,7 +577,7 @@ FROM profiles;
 -- Export role change history
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     urh.old_role,
     urh.new_role,
     urh.changed_at,
@@ -568,6 +586,7 @@ SELECT
 FROM user_role_history urh
 JOIN profiles p ON urh.user_id = p.id
 JOIN profiles p2 ON urh.changed_by = p2.id
+LEFT JOIN auth.users au ON p.id = au.id
 ORDER BY urh.changed_at DESC;
 
 -- ========================================
@@ -577,46 +596,50 @@ ORDER BY urh.changed_at DESC;
 -- Get suspicious login attempts
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     lh.login_time,
     lh.ip_address,
     lh.user_agent,
     lh.failure_reason
 FROM user_login_history lh
 JOIN profiles p ON lh.user_id = p.id
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE lh.success = false
 ORDER BY lh.login_time DESC;
 
 -- Get users with multiple failed logins
 SELECT 
     p.full_name,
-    p.email,
+    COALESCE(p.email, au.email) as email,
     COUNT(*) as failed_attempts,
     MAX(lh.login_time) as last_attempt
 FROM user_login_history lh
 JOIN profiles p ON lh.user_id = p.id
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE lh.success = false
-GROUP BY p.id, p.full_name, p.email
+GROUP BY p.id, p.full_name, au.email
 HAVING COUNT(*) >= 5
 ORDER BY failed_attempts DESC;
 
 -- Get admin activity summary
 SELECT 
     p.full_name,
+    COALESCE(p.email, au.email) as email,
     COUNT(CASE WHEN ual.action = 'role_changed' THEN 1 END) as role_changes,
     COUNT(CASE WHEN ual.action = 'user_banned' THEN 1 END) as bans,
     COUNT(CASE WHEN ual.action = 'user_deleted' THEN 1 END) as deletions,
     COUNT(*) as total_actions
 FROM profiles p
 LEFT JOIN user_activity_logs ual ON p.id = ual.user_id
+LEFT JOIN auth.users au ON p.id = au.id
 WHERE p.role = 'admin'
-GROUP BY p.id, p.full_name
+GROUP BY p.id, p.full_name, au.email
 ORDER BY total_actions DESC;
 
 -- ========================================
 -- USAGE INSTRUCTIONS:
 -- ========================================
--- 1. Run the CREATE TABLES section first
+-- 1. Run the ALTER TABLE section first to add missing columns
 -- 2. Use the INSERT queries to add sample data
 -- 3. Use the SELECT queries to retrieve user data
 -- 4. Use the UPDATE queries to modify user information
@@ -632,6 +655,6 @@ ORDER BY total_actions DESC;
 -- - Replace 'ADMIN_USER_UUID' with actual admin user IDs
 -- - Replace 'search_term' with actual search terms
 -- - Always backup data before running DELETE operations
--- - Some queries may need adjustment based on your specific database schema
 -- - The auth.users table is managed by Supabase authentication
+-- - Email is pulled from auth.users if not set in profiles table
 -- - Use these queries for manual database operations and troubleshooting
