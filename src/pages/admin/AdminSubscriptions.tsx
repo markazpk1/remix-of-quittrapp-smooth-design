@@ -16,6 +16,7 @@ import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, DollarSign, Users, TrendingUp, CreditCard, Check, Crown, Zap, Star } from "lucide-react";
 import { toast } from "../../hooks/use-toast";
 import { api } from "../../services/api";
+import { saveSubscriptionPlanToDatabase, fetchSubscriptionPlansFromDatabase, updateSubscriptionPlanInDatabase, deleteSubscriptionPlanFromDatabase, fetchSubscribersFromDatabase, cancelSubscriberSubscription, refundSubscriberSubscription } from "../../services/supabase";
 
 interface Plan {
   id: string; name: string; price: string; interval: string; icon: string; active: boolean; subscribers: number; features: string[]; color: string;
@@ -42,14 +43,52 @@ export default function AdminSubscriptions() {
   const fetchSubscriptionData = async () => {
     try {
       setLoading(true);
-      const [plansRes, subscribersRes, statsRes] = await Promise.all([
-        api.getSubscriptionPlans(),
-        api.getSubscribers(),
-        api.getSubscriptionStats(),
-      ]);
+      
+      // Fetch plans and subscribers from database (fallback to mock API if tables don't exist)
+      let plansRes, subscribersRes;
+      try {
+        plansRes = await fetchSubscriptionPlansFromDatabase();
+      } catch (error) {
+        console.log('Subscription plans database not available, falling back to mock API');
+        plansRes = await api.getSubscriptionPlans();
+      }
+      
+      try {
+        subscribersRes = await fetchSubscribersFromDatabase();
+      } catch (error) {
+        console.log('Subscribers database not available, falling back to mock API');
+        subscribersRes = await api.getSubscribers();
+      }
+      
+      // Fetch stats from API (for now)
+      const statsRes = await api.getSubscriptionStats();
 
-      setPlans(Array.isArray(plansRes) ? plansRes : []);
-      setSubscribers(Array.isArray(subscribersRes) ? subscribersRes : []);
+      // Transform plans data to match Plan interface
+      const transformedPlans = (plansRes.data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name || 'Untitled',
+        price: `$${parseFloat(item.price || 0).toFixed(2)}`,
+        interval: item.interval || '/month',
+        icon: item.icon || 'Star',
+        active: item.active !== false,
+        subscribers: item.subscribers || 0, // Now subscribers is a direct number
+        features: item.features || [],
+        color: item.color || 'text-gray-400'
+      }));
+
+      // Transform subscribers data to match Subscriber interface
+      const transformedSubscribers = (subscribersRes.data || []).map((item: any) => ({
+        id: item.id,
+        user: item.user_name || 'Unknown User',
+        email: item.user_email || 'unknown@example.com',
+        plan: item.subscription_plans?.name || item.plan_name || 'Unknown',
+        amount: `$${item.amount || 0}`,
+        date: new Date(item.subscribed_at || item.date).toLocaleDateString(),
+        status: item.status || 'active'
+      }));
+
+      setPlans(transformedPlans);
+      setSubscribers(transformedSubscribers);
     } catch (error) {
       console.error('Failed to fetch subscription data:', error);
       toast({ title: "Error", description: "Failed to load subscription data" });
@@ -63,30 +102,179 @@ export default function AdminSubscriptions() {
 
   const filteredSubs = subscribers.filter((s) => s.user.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase()));
 
-  const togglePlan = (id: string) => {
-    toast({ title: "Not Implemented", description: "Plan toggle coming soon" });
+  const togglePlan = async (id: string) => {
+    const plan = plans.find((p) => p.id === id);
+    if (!plan) return;
+    
+    try {
+      const result = await updateSubscriptionPlanInDatabase(id, { active: !plan.active });
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      setPlans((prev) => prev.map((p) => 
+        p.id === id ? { ...p, active: !p.active } : p
+      ));
+      toast({ title: "Success", description: `Plan ${plan.active ? 'deactivated' : 'activated'} successfully` });
+    } catch (error) {
+      console.error('Toggle plan error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to toggle plan", variant: "destructive" });
+    }
   };
 
-  const addPlan = () => {
-    toast({ title: "Not Implemented", description: "Plan creation coming soon" });
-    setAddPlanOpen(false);
-    setPlanForm({ name: "", price: "", features: "" });
+  const addPlan = async () => {
+    if (!planForm.name.trim() || !planForm.price.trim() || !planForm.features.trim()) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const planData = {
+        name: planForm.name.trim(),
+        price: parseFloat(planForm.price.replace('$', '')),
+        interval: '/month',
+        icon: 'Star',
+        color: 'text-blue-400',
+        active: true,
+        features: planForm.features.split('\n').filter(f => f.trim()).map(f => f.trim())
+      };
+
+      const result = await saveSubscriptionPlanToDatabase(planData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "Plan created successfully" });
+      setAddPlanOpen(false);
+      setPlanForm({ name: "", price: "", features: "" });
+      
+      // Refresh the plans list
+      await fetchSubscriptionData();
+    } catch (error) {
+      console.error('Add plan error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to create plan", variant: "destructive" });
+    }
   };
 
-  const savePlanEdit = () => {
-    toast({ title: "Not Implemented", description: "Plan editing coming soon" });
-    setEditPlanOpen(false);
+  const savePlanEdit = async () => {
+    if (!editPlan || !planForm.name.trim() || !planForm.price.trim() || !planForm.features.trim()) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const planData = {
+        name: planForm.name.trim(),
+        price: parseFloat(planForm.price.replace('$', '')),
+        features: planForm.features.split('\n').filter(f => f.trim()).map(f => f.trim())
+      };
+
+      const result = await updateSubscriptionPlanInDatabase(editPlan.id, planData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "Plan updated successfully" });
+      setEditPlanOpen(false);
+      setEditPlan(null);
+      
+      // Refresh the plans list
+      await fetchSubscriptionData();
+    } catch (error) {
+      console.error('Save plan edit error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update plan", variant: "destructive" });
+    }
   };
 
-  const refundSubscriber = (sub: Subscriber) => {
-    toast({ title: "Not Implemented", description: "Refund processing coming soon" });
+  const refundSubscriber = async (sub: Subscriber) => {
+    setConfirm({
+      open: true,
+      title: `Refund ${sub.user}'s subscription?`,
+      description: "This will mark the subscription as refunded and disable auto-renewal. This action cannot be undone.",
+      variant: "destructive",
+      onConfirm: async () => {
+        try {
+          const result = await refundSubscriberSubscription(sub.id);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Update local state
+          setSubscribers((prev) => prev.map((s) => 
+            s.id === sub.id ? { ...s, status: 'refunded' } : s
+          ));
+          toast({ title: "Success", description: "Subscription refunded successfully" });
+        } catch (error) {
+          console.error('Refund subscription error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to refund subscription", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const cancelSubscriber = (sub: Subscriber) => {
-    toast({ title: "Not Implemented", description: "Subscription cancellation coming soon" });
+  const cancelSubscriber = async (sub: Subscriber) => {
+    setConfirm({
+      open: true,
+      title: `Cancel ${sub.user}'s subscription?`,
+      description: "This will cancel the subscription and disable auto-renewal. The user will lose access at the end of the billing period.",
+      variant: "warning",
+      onConfirm: async () => {
+        try {
+          const result = await cancelSubscriberSubscription(sub.id);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Update local state
+          setSubscribers((prev) => prev.map((s) => 
+            s.id === sub.id ? { ...s, status: 'canceled' } : s
+          ));
+          toast({ title: "Success", description: "Subscription canceled successfully" });
+        } catch (error) {
+          console.error('Cancel subscription error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to cancel subscription", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const totalMRR = plans.filter((p) => p.active && p.interval === "/month").reduce((a, p) => a + p.subscribers * parseFloat(p.price.replace("$", "")), 0);
+  const deletePlan = async (planId: string) => {
+    const plan = plans.find((p) => p.id === planId);
+    if (!plan) return;
+    
+    setConfirm({
+      open: true,
+      title: `Delete "${plan.name}" plan?`,
+      description: "This will permanently delete the subscription plan. Any subscribers on this plan will need to be reassigned. This action cannot be undone.",
+      variant: "destructive",
+      onConfirm: async () => {
+        try {
+          const result = await deleteSubscriptionPlanFromDatabase(planId);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Remove from local state
+          setPlans((prev) => prev.filter((p) => p.id !== planId));
+          toast({ title: "Success", description: "Plan deleted permanently" });
+        } catch (error) {
+          console.error('Delete plan error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to delete plan", variant: "destructive" });
+        }
+      }
+    });
+  };
+
+  const totalMRR = plans.filter((p) => p.active && p.interval === "/month").reduce((a, p) => {
+    const price = parseFloat(p.price.replace("$", "")) || 0;
+    return a + (p.subscribers * price);
+  }, 0);
 
   return (
     <div className="space-y-6">
@@ -107,9 +295,9 @@ export default function AdminSubscriptions() {
           </div>
         ) : (
           [
-            { label: "MRR", value: `$${Math.round(plans.filter((p) => p.active && p.interval === "/month").reduce((a, p) => a + p.subscribers * parseFloat(p.price.replace("$", "")), 0)).toLocaleString()}`, icon: DollarSign },
-            { label: "Total Subscribers", value: plans.reduce((a, p) => a + p.subscribers, 0).toLocaleString(), icon: Users },
-            { label: "Paid Users", value: plans.filter((p) => p.price !== "$0").reduce((a, p) => a + p.subscribers, 0).toLocaleString(), icon: CreditCard },
+            { label: "MRR", value: `$${Math.round(totalMRR).toLocaleString()}`, icon: DollarSign },
+            { label: "Total Subscribers", value: plans.reduce((a, p) => a + (p.subscribers || 0), 0).toLocaleString(), icon: Users },
+            { label: "Paid Users", value: plans.filter((p) => parseFloat(p.price.replace("$", "")) > 0).reduce((a, p) => a + (p.subscribers || 0), 0).toLocaleString(), icon: CreditCard },
             { label: "Plans Active", value: plans.filter((p) => p.active).length, icon: TrendingUp },
           ].map((st) => (
             <Card key={st.label} className="bg-card/60 border-border/40"><CardContent className="p-4"><st.icon className="w-4 h-4 text-muted-foreground mb-2" /><div className="text-xl font-bold font-display text-foreground">{st.value}</div><div className="text-[11px] text-muted-foreground">{st.label}</div></CardContent></Card>
@@ -180,7 +368,10 @@ export default function AdminSubscriptions() {
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-3 border-t border-border/20">
                   <span>{plan.subscribers.toLocaleString()} subscribers</span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditPlan(plan); setPlanForm({ name: plan.name, price: plan.price, features: plan.features.join("\n") }); setEditPlanOpen(true); }}><Pencil className="w-3 h-3 mr-1" /> Edit</Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditPlan(plan); setPlanForm({ name: plan.name, price: plan.price, features: plan.features.join("\n") }); setEditPlanOpen(true); }}><Pencil className="w-3 h-3 mr-1" /> Edit</Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300" onClick={() => deletePlan(plan.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

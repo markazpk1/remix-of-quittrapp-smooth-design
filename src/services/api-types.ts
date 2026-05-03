@@ -55,6 +55,28 @@ export interface ApiMethods {
   }): Promise<ApiResponse>;
   deleteRole(roleId: string): Promise<ApiResponse>;
   updateRolePermission(roleId: string, permissionKey: string, enabled: boolean): Promise<ApiResponse>;
+  getAllRoles(): Promise<ApiResponse<Array<{
+    id: string;
+    name: string;
+    color: string;
+    system: boolean;
+    created_at: string;
+  }>>>;
+  
+  // Service management
+  getServices(): Promise<ApiResponse>;
+  createService(serviceData: {
+    name: string;
+    description: string;
+    category: string;
+  }): Promise<ApiResponse>;
+  updateService(serviceId: string, serviceData: {
+    name: string;
+    description: string;
+    category: string;
+  }): Promise<ApiResponse>;
+  toggleService(serviceId: string): Promise<ApiResponse>;
+  deleteService(serviceId: string): Promise<ApiResponse>;
   
   // Additional methods (mock implementations)
   getUserLessons(): Promise<ApiResponse>;

@@ -16,6 +16,1649 @@ const handleSupabaseError = (error: any) => {
   };
 };
 
+// Function to upload file to Supabase Storage
+export const uploadFileToStorage = async (file: File, bucket: string = 'media-files') => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+    const filePath = `${bucket}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file);
+
+    if (error) {
+      // Check if it's a bucket not found error
+      if (error.message.includes('Bucket not found') || error.message.includes('bucket')) {
+        throw new Error(`Storage bucket '${bucket}' not found. Please create this bucket in Supabase Storage.`);
+      }
+      throw error;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+
+    return {
+      success: true,
+      data: {
+        path: data.path,
+        publicUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type
+      }
+    };
+  } catch (error) {
+    console.error('File upload error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to upload file'
+    };
+  }
+};
+
+// Function to save file metadata to database
+export const saveFileMetadata = async (fileData: {
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  file_path: string;
+  public_url: string;
+  mime_type: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('uploaded_files')
+      .insert({
+        file_name: fileData.file_name,
+        file_type: fileData.file_type,
+        file_size: fileData.file_size,
+        file_path: fileData.file_path,
+        public_url: fileData.public_url,
+        mime_type: fileData.mime_type,
+        uploaded_by: 'admin'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Save file metadata error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to save file metadata'
+    };
+  }
+};
+
+// Function to save lesson to database
+export const saveLessonToDatabase = async (lessonData: {
+  title: string;
+  category: string;
+  content_type: string;
+  content?: string;
+  file_id?: string;
+  duration?: string;
+  status: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('lesson_content')
+      .insert({
+        title: lessonData.title,
+        category: lessonData.category,
+        content_type: lessonData.content_type,
+        content: lessonData.content,
+        file_id: lessonData.file_id,
+        duration: lessonData.duration,
+        status: lessonData.status,
+        view_count: 0,
+        order_index: 0
+      })
+      .select(`
+        *,
+        uploaded_files (
+          public_url
+        )
+      `)
+      .single();
+
+    if (error) {
+      // If table doesn't exist, provide helpful error message
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Save lesson error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to save lesson'
+    };
+  }
+};
+
+// Function to fetch lessons from database
+export const fetchLessonsFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('lesson_content')
+      .select(`
+        *,
+        uploaded_files (
+          public_url
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // If table doesn't exist, return empty data instead of error
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('lesson_content table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch lessons error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch lessons'
+    };
+  }
+};
+
+// Function to delete lesson from database
+export const deleteLessonFromDatabase = async (lessonId: string) => {
+  try {
+    const { error } = await supabase
+      .from('lesson_content')
+      .delete()
+      .eq('id', lessonId);
+
+    if (error) {
+      // If table doesn't exist, provide helpful error message
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete lesson error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete lesson'
+    };
+  }
+};
+
+// Function to save sound track to database
+export const saveSoundTrackToDatabase = async (soundData: {
+  name: string;
+  category: string;
+  file_id?: string;
+  duration?: string;
+  status: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('sound_tracks')
+      .insert({
+        name: soundData.name,
+        category: soundData.category,
+        file_id: soundData.file_id,
+        duration: soundData.duration,
+        status: soundData.status,
+        play_count: 0
+      })
+      .select(`
+        *,
+        uploaded_files (
+          public_url
+        )
+      `)
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Save sound track error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to save sound track'
+    };
+  }
+};
+
+// Function to fetch sound tracks from database
+export const fetchSoundTracksFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('sound_tracks')
+      .select(`
+        *,
+        uploaded_files (
+          public_url
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('sound_tracks table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch sound tracks error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch sound tracks'
+    };
+  }
+};
+
+// Function to delete sound track from database
+export const deleteSoundTrackFromDatabase = async (soundId: string) => {
+  try {
+    const { error } = await supabase
+      .from('sound_tracks')
+      .delete()
+      .eq('id', soundId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete sound track error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete sound track'
+    };
+  }
+};
+
+// Function to save voice track to database
+export const saveVoiceTrackToDatabase = async (voiceData: {
+  name: string;
+  voice_name: string;
+  category: string;
+  language: string;
+  file_id?: string;
+  duration?: string;
+  file_size?: string;
+  source: string;
+  status: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('voice_tracks')
+      .insert({
+        name: voiceData.name,
+        voice_name: voiceData.voice_name,
+        category: voiceData.category,
+        language: voiceData.language,
+        file_id: voiceData.file_id,
+        duration: voiceData.duration,
+        file_size: voiceData.file_size,
+        source: voiceData.source,
+        status: voiceData.status,
+        play_count: 0
+      })
+      .select(`
+        *,
+        uploaded_files (
+          public_url
+        )
+      `)
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Save voice track error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to save voice track'
+    };
+  }
+};
+
+// Function to fetch voice tracks from database
+export const fetchVoiceTracksFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('voice_tracks')
+      .select(`
+        *,
+        uploaded_files (
+          public_url
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('voice_tracks table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch voice tracks error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch voice tracks'
+    };
+  }
+};
+
+// Function to delete voice track from database
+export const deleteVoiceTrackFromDatabase = async (voiceId: string) => {
+  try {
+    const { error } = await supabase
+      .from('voice_tracks')
+      .delete()
+      .eq('id', voiceId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete voice track error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete voice track'
+    };
+  }
+};
+
+// Function to save subscription plan to database
+export const saveSubscriptionPlanToDatabase = async (planData: {
+  name: string;
+  price: number;
+  interval: string;
+  icon: string;
+  color: string;
+  active: boolean;
+  features: string[];
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .insert({
+        name: planData.name,
+        price: planData.price,
+        interval: planData.interval,
+        icon: planData.icon,
+        color: planData.color,
+        active: planData.active,
+        features: planData.features
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the subscriptions_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Save subscription plan error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to save subscription plan'
+    };
+  }
+};
+
+// Function to fetch subscription plans from database
+export const fetchSubscriptionPlansFromDatabase = async () => {
+  try {
+    // First fetch plans
+    const { data: plans, error: plansError } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (plansError) {
+      if (plansError.message.includes('relation') || plansError.message.includes('does not exist')) {
+        console.log('subscription_plans table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw plansError;
+    }
+
+    // Then fetch subscriber counts for each plan
+    const { data: subscriberCounts, error: countsError } = await supabase
+      .from('subscribers')
+      .select('plan_id, status')
+      .eq('status', 'active');
+
+    if (countsError) {
+      // If subscribers table doesn't exist, just return plans with 0 subscribers
+      console.log('subscribers table does not exist yet, returning plans with 0 subscribers');
+      return {
+        success: true,
+        data: plans.map(plan => ({ ...plan, subscribers: 0 }))
+      };
+    }
+
+    // Count subscribers for each plan
+    const counts = subscriberCounts.reduce((acc: any, sub: any) => {
+      acc[sub.plan_id] = (acc[sub.plan_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Merge plans with subscriber counts
+    const plansWithCounts = plans.map(plan => ({
+      ...plan,
+      subscribers: counts[plan.id] || 0
+    }));
+
+    return {
+      success: true,
+      data: plansWithCounts
+    };
+  } catch (error) {
+    console.error('Fetch subscription plans error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch subscription plans'
+    };
+  }
+};
+
+// Function to update subscription plan in database
+export const updateSubscriptionPlanInDatabase = async (planId: string, planData: {
+  name?: string;
+  price?: number;
+  interval?: string;
+  icon?: string;
+  color?: string;
+  active?: boolean;
+  features?: string[];
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('subscription_plans')
+      .update(planData)
+      .eq('id', planId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the subscriptions_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update subscription plan error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update subscription plan'
+    };
+  }
+};
+
+// Function to delete subscription plan from database
+export const deleteSubscriptionPlanFromDatabase = async (planId: string) => {
+  try {
+    const { error } = await supabase
+      .from('subscription_plans')
+      .delete()
+      .eq('id', planId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the subscriptions_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete subscription plan error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete subscription plan'
+    };
+  }
+};
+
+// Function to fetch subscribers from database
+export const fetchSubscribersFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('subscribers')
+      .select(`
+        *,
+        subscription_plans (
+          name,
+          price,
+          interval
+        )
+      `)
+      .order('subscribed_at', { ascending: false });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('subscribers table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch subscribers error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch subscribers'
+    };
+  }
+};
+
+// Function to cancel subscriber subscription
+export const cancelSubscriberSubscription = async (subscriberId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('subscribers')
+      .update({
+        status: 'canceled',
+        canceled_at: new Date().toISOString(),
+        auto_renew: false
+      })
+      .eq('id', subscriberId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the subscriptions_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Cancel subscription error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to cancel subscription'
+    };
+  }
+};
+
+// Function to refund subscriber subscription
+export const refundSubscriberSubscription = async (subscriberId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('subscribers')
+      .update({
+        status: 'refunded',
+        refunded_at: new Date().toISOString(),
+        auto_renew: false
+      })
+      .eq('id', subscriberId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the subscriptions_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Refund subscription error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to refund subscription'
+    };
+  }
+};
+
+// Function to fetch support tickets from database
+export const fetchSupportTicketsFromDatabase = async () => {
+  try {
+    // First fetch tickets
+    const { data: tickets, error: ticketsError } = await supabase
+      .from('support_tickets')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (ticketsError) {
+      if (ticketsError.message.includes('relation') || ticketsError.message.includes('does not exist')) {
+        console.log('support_tickets table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw ticketsError;
+    }
+
+    // Then fetch reply counts for each ticket
+    const { data: replyCounts, error: countsError } = await supabase
+      .from('ticket_replies')
+      .select('ticket_id')
+      .eq('reply_type', 'admin'); // Only count admin replies
+
+    if (countsError) {
+      // If ticket_replies table doesn't exist, just return tickets with 0 replies
+      console.log('ticket_replies table does not exist yet, returning tickets with 0 replies');
+      return {
+        success: true,
+        data: tickets.map(ticket => ({ ...ticket, ticket_replies: { count: 0 } }))
+      };
+    }
+
+    // Count replies for each ticket
+    const counts = replyCounts.reduce((acc: any, reply: any) => {
+      acc[reply.ticket_id] = (acc[reply.ticket_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Merge tickets with reply counts
+    const ticketsWithCounts = tickets.map(ticket => ({
+      ...ticket,
+      ticket_replies: { count: counts[ticket.id] || 0 }
+    }));
+
+    return {
+      success: true,
+      data: ticketsWithCounts
+    };
+  } catch (error) {
+    console.error('Fetch support tickets error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch support tickets'
+    };
+  }
+};
+
+// Function to update support ticket status
+export const updateSupportTicketStatus = async (ticketId: string, status: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .update({
+        status: status,
+        last_reply_at: new Date().toISOString()
+      })
+      .eq('id', ticketId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the support_tickets_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update support ticket status error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update support ticket status'
+    };
+  }
+};
+
+// Function to add reply to support ticket
+export const addSupportTicketReply = async (ticketId: string, message: string, adminName: string = 'Admin') => {
+  try {
+    // First add the reply
+    const { data: replyData, error: replyError } = await supabase
+      .from('ticket_replies')
+      .insert({
+        ticket_id: ticketId,
+        reply_type: 'admin',
+        replier_name: adminName,
+        message: message
+      })
+      .select()
+      .single();
+
+    if (replyError) {
+      if (replyError.message.includes('relation') || replyError.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the support_tickets_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw replyError;
+    }
+
+    // Then update the ticket's last_reply_at
+    const { error: updateError } = await supabase
+      .from('support_tickets')
+      .update({
+        last_reply_at: new Date().toISOString()
+      })
+      .eq('id', ticketId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return {
+      success: true,
+      data: replyData
+    };
+  } catch (error) {
+    console.error('Add support ticket reply error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to add support ticket reply'
+    };
+  }
+};
+
+// Function to fetch ticket replies
+export const fetchTicketReplies = async (ticketId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('ticket_replies')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('ticket_replies table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch ticket replies error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch ticket replies'
+    };
+  }
+};
+
+// Function to delete support ticket
+export const deleteSupportTicket = async (ticketId: string) => {
+  try {
+    const { error } = await supabase
+      .from('support_tickets')
+      .delete()
+      .eq('id', ticketId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the support_tickets_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete support ticket error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete support ticket'
+    };
+  }
+};
+
+// Function to fetch notification campaigns from database
+export const fetchNotificationCampaignsFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('notification_campaigns')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('notification_campaigns table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch notification campaigns error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch notification campaigns'
+    };
+  }
+};
+
+// Function to create notification campaign
+export const createNotificationCampaign = async (campaignData: {
+  title: string;
+  body: string;
+  audience: string;
+  channel: string;
+  status?: string;
+  scheduled_at?: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('notification_campaigns')
+      .insert({
+        title: campaignData.title,
+        body: campaignData.body,
+        audience: campaignData.audience,
+        channel: campaignData.channel,
+        status: campaignData.status || 'draft',
+        scheduled_at: campaignData.scheduled_at || null
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the notifications_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Create notification campaign error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create notification campaign'
+    };
+  }
+};
+
+// Function to update notification campaign
+export const updateNotificationCampaign = async (campaignId: string, updateData: {
+  title?: string;
+  body?: string;
+  audience?: string;
+  channel?: string;
+  status?: string;
+  scheduled_at?: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('notification_campaigns')
+      .update(updateData)
+      .eq('id', campaignId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the notifications_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update notification campaign error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update notification campaign'
+    };
+  }
+};
+
+// Function to delete notification campaign
+export const deleteNotificationCampaign = async (campaignId: string) => {
+  try {
+    const { error } = await supabase
+      .from('notification_campaigns')
+      .delete()
+      .eq('id', campaignId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the notifications_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete notification campaign error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete notification campaign'
+    };
+  }
+};
+
+// Function to fetch content sections from database
+export const fetchContentSectionsFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('content_sections')
+      .select('*')
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('content_sections table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch content sections error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch content sections'
+    };
+  }
+};
+
+// Function to update content section
+export const updateContentSection = async (sectionId: string, enabled: boolean) => {
+  try {
+    const { data, error } = await supabase
+      .from('content_sections')
+      .update({ enabled })
+      .eq('id', sectionId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update content section error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update content section'
+    };
+  }
+};
+
+// Function to update content section details
+export const updateContentSectionDetails = async (sectionId: string, updateData: {
+  title?: string;
+  subtitle?: string;
+  content?: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('content_sections')
+      .update(updateData)
+      .eq('id', sectionId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update content section details error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update content section details'
+    };
+  }
+};
+
+// Function to fetch blog posts from database
+export const fetchBlogPostsFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('blog_posts table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch blog posts error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch blog posts'
+    };
+  }
+};
+
+// Function to create blog post
+export const createBlogPost = async (postData: {
+  title: string;
+  category: string;
+  author: string;
+  status?: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .insert({
+        title: postData.title,
+        category: postData.category,
+        author: postData.author,
+        status: postData.status || 'draft'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Create blog post error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create blog post'
+    };
+  }
+};
+
+// Function to update blog post
+export const updateBlogPost = async (postId: string, updateData: {
+  status?: string;
+  title?: string;
+  category?: string;
+  author?: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .update(updateData)
+      .eq('id', postId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update blog post error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update blog post'
+    };
+  }
+};
+
+// Function to delete blog post
+export const deleteBlogPost = async (postId: string) => {
+  try {
+    const { error } = await supabase
+      .from('blog_posts')
+      .delete()
+      .eq('id', postId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete blog post error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete blog post'
+    };
+  }
+};
+
+// Function to fetch FAQs from database
+export const fetchFaqsFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('faqs')
+      .select('*')
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('faqs table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch FAQs error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch FAQs'
+    };
+  }
+};
+
+// Function to create FAQ
+export const createFaq = async (faqData: {
+  question: string;
+  answer: string;
+  category: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('faqs')
+      .insert(faqData)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Create FAQ error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create FAQ'
+    };
+  }
+};
+
+// Function to delete FAQ
+export const deleteFaq = async (faqId: string) => {
+  try {
+    const { error } = await supabase
+      .from('faqs')
+      .delete()
+      .eq('id', faqId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete FAQ error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete FAQ'
+    };
+  }
+};
+
+// Function to fetch testimonials from database
+export const fetchTestimonialsFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('testimonials')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('testimonials table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch testimonials error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch testimonials'
+    };
+  }
+};
+
+// Function to create testimonial
+export const createTestimonial = async (testimonialData: {
+  name: string;
+  quote: string;
+  rating?: number;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('testimonials')
+      .insert({
+        name: testimonialData.name,
+        quote: testimonialData.quote,
+        rating: testimonialData.rating || 5
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Create testimonial error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create testimonial'
+    };
+  }
+};
+
+// Function to update testimonial
+export const updateTestimonial = async (testimonialId: string, updateData: {
+  status?: string;
+  featured?: boolean;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('testimonials')
+      .update(updateData)
+      .eq('id', testimonialId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update testimonial error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update testimonial'
+    };
+  }
+};
+
+// Function to delete testimonial
+export const deleteTestimonial = async (testimonialId: string) => {
+  try {
+    const { error } = await supabase
+      .from('testimonials')
+      .delete()
+      .eq('id', testimonialId);
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Delete testimonial error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete testimonial'
+    };
+  }
+};
+
+// Function to fetch SEO pages from database
+export const fetchSeoPagesFromDatabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('seo_pages')
+      .select('*')
+      .order('path', { ascending: true });
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        console.log('seo_pages table does not exist yet, returning empty data');
+        return {
+          success: true,
+          data: []
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Fetch SEO pages error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch SEO pages'
+    };
+  }
+};
+
+// Function to update SEO page
+export const updateSeoPage = async (path: string, indexed: boolean) => {
+  try {
+    const { data, error } = await supabase
+      .from('seo_pages')
+      .update({ indexed })
+      .eq('path', path)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes('relation') || error.message.includes('does not exist')) {
+        return {
+          success: false,
+          message: 'Database tables not created yet. Please run the content_schema.sql file in Supabase SQL Editor.'
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update SEO page error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update SEO page'
+    };
+  }
+};
+
 // Helper function to format relative time
 const formatRelativeTime = (dateString: string): string => {
   const date = new Date(dateString);
@@ -308,6 +1951,14 @@ export const api: ApiMethods = {
   getUserProgress: supabaseApi.getUserProgress,
   getAllUsers: supabaseApi.getAllUsers,
   getDashboardStats: supabaseApi.getDashboardStats,
+  
+  // Service management (mock implementations)
+  getServices: () => Promise.resolve({ success: true, data: [] }),
+  createService: (serviceData: { name: string; description: string; category: string }) => Promise.resolve({ success: true, data: {} }),
+  updateService: (serviceId: string, serviceData: { name: string; description: string; category: string }) => Promise.resolve({ success: true, data: {} }),
+  toggleService: (serviceId: string) => Promise.resolve({ success: true, data: {} }),
+  deleteService: (serviceId: string) => Promise.resolve({ success: true, data: {} }),
+  getServicesStats: () => Promise.resolve({ success: true, data: [] }),
   
   // Mock implementations for other endpoints
   getUserLessons: () => Promise.resolve({ success: true, data: [] }),
@@ -948,6 +2599,33 @@ export const api: ApiMethods = {
       };
     }
   },
+  getAllRoles: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('roles')
+        .select(`
+          id,
+          name,
+          color,
+          system,
+          created_at
+        `)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: data || []
+      };
+    } catch (error) {
+      console.error('Get all roles error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to fetch roles'
+      };
+    }
+  },
   updateRolePermission: async (roleId: string, permissionKey: string, enabled: boolean) => {
     try {
       // Check if it's a system role
@@ -988,80 +2666,6 @@ export const api: ApiMethods = {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to update permission'
       };
-    }
-  },
-  getServicesStats: async () => {
-    try {
-      // Get actual services data from a services table or return mock data for now
-      const mockServices = [
-        { id: 'library', name: 'Islamic Library', users: 245, enabled: true },
-        { id: 'threads', name: 'Community Threads', users: 189, enabled: true },
-        { id: 'daily-goals', name: 'Daily Goals', users: 312, enabled: true },
-        { id: 'pomodoro', name: 'Productivity Timer', users: 156, enabled: true }
-      ];
-      
-      return {
-        success: true,
-        data: {
-          library: mockServices[0].users,
-          threads: mockServices[1].users,
-          activeUsers: mockServices[2].users,
-          pomodoro: mockServices[3].users,
-          totalUsers: mockServices.reduce((sum, s) => sum + s.users, 0)
-        }
-      };
-    } catch (error) {
-      return handleSupabaseError(error);
-    }
-  },
-  getServices: async () => {
-    try {
-      // Return services data - in production this would come from a services table
-      const services = [
-        {
-          id: 'library',
-          name: 'Islamic Library',
-          description: 'Educational content including Quran, Hadith, and Islamic studies materials.',
-          category: 'Education',
-          version: '1.0',
-          enabled: true,
-          usersActive: 245
-        },
-        {
-          id: 'threads',
-          name: 'Community Threads',
-          description: 'Social platform for users to share knowledge, ask questions, and discuss Islamic topics.',
-          category: 'Social',
-          version: '1.0',
-          enabled: true,
-          usersActive: 189
-        },
-        {
-          id: 'daily-goals',
-          name: 'Daily Goals',
-          description: 'Track daily prayer, Quran reading, and other Islamic practice goals.',
-          category: 'Recovery',
-          version: '1.0',
-          enabled: true,
-          usersActive: 312
-        },
-        {
-          id: 'pomodoro',
-          name: 'Productivity Timer',
-          description: 'Pomodoro technique timer for focused study and work sessions.',
-          category: 'Analytics',
-          version: '1.0',
-          enabled: true,
-          usersActive: 156
-        }
-      ];
-      
-      return {
-        success: true,
-        data: services
-      };
-    } catch (error) {
-      return handleSupabaseError(error);
     }
   },
   getLibraryContent: () => Promise.resolve({ success: true, data: [] }),

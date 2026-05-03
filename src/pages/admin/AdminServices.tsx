@@ -85,30 +85,157 @@ export default function AdminServices() {
     }
   };
 
-  const toggleService = (id: string) => {
-    setServices((prev) => prev.map((s) => {
-      if (s.id !== id) return s;
-      const toggled = { ...s, enabled: !s.enabled };
-      toast({ title: toggled.enabled ? "Service Enabled" : "Service Disabled", description: `${s.name} has been ${toggled.enabled ? "enabled" : "disabled"}.` });
-      return toggled;
-    }));
+  const toggleService = async (id: string) => {
+    try {
+      const response = await api.toggleService(id);
+      
+      if (!response.success) {
+        toast({ 
+          title: "Error", 
+          description: response.message || "Failed to toggle service",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update local state
+      setServices((prev) => prev.map((s) => {
+        if (s.id !== id) return s;
+        const toggled = { ...s, enabled: !s.enabled };
+        toast({ title: toggled.enabled ? "Service Enabled" : "Service Disabled", description: `${s.name} has been ${toggled.enabled ? "enabled" : "disabled"}.` });
+        return toggled;
+      }));
+    } catch (error) {
+      console.error('Toggle service error:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to toggle service",
+        variant: "destructive"
+      });
+    }
   };
 
-  const addService = () => {
-    toast({ title: "Not Implemented", description: "Custom service creation coming soon" });
-    setAddOpen(false);
-    setForm({ name: "", category: "", description: "" });
+  const addService = async () => {
+    if (!form.name.trim() || !form.category.trim() || !form.description.trim()) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const response = await api.createService({
+        name: form.name.trim(),
+        category: form.category.trim(),
+        description: form.description.trim()
+      });
+
+      if (!response.success) {
+        toast({ 
+          title: "Error", 
+          description: response.message || "Failed to create service",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Add new service to local state for immediate UI update
+      const newService: AppService = {
+        id: `service_${Date.now()}`,
+        name: form.name.trim(),
+        description: form.description.trim(),
+        icon: iconMap[form.category.trim()] || iconMap.Default,
+        enabled: true,
+        usersActive: 0,
+        category: form.category.trim(),
+        version: '1.0.0'
+      };
+
+      setServices((prev) => [...prev, newService]);
+      toast({ title: "Success", description: "Service created successfully" });
+      
+      // Reset form and close dialog
+      setAddOpen(false);
+      setForm({ name: "", category: "", description: "" });
+    } catch (error) {
+      console.error('Create service error:', error);
+      toast({ title: "Error", description: "Failed to create service", variant: "destructive" });
+    }
   };
 
-  const saveEdit = () => {
-    toast({ title: "Not Implemented", description: "Service editing coming soon" });
-    setEditOpen(false);
-    setEditService(null);
+  const saveEdit = async () => {
+    if (!editService || !form.name.trim() || !form.category.trim() || !form.description.trim()) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const response = await api.updateService(editService.id, {
+        name: form.name.trim(),
+        category: form.category.trim(),
+        description: form.description.trim()
+      });
+
+      if (!response.success) {
+        toast({ 
+          title: "Error", 
+          description: response.message || "Failed to update service",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update service in local state
+      setServices((prev) => prev.map((s) => {
+        if (s.id !== editService.id) return s;
+        return {
+          ...s,
+          name: form.name.trim(),
+          category: form.category.trim(),
+          description: form.description.trim(),
+          icon: iconMap[form.category.trim()] || iconMap.Default
+        };
+      }));
+
+      toast({ title: "Success", description: "Service updated successfully" });
+      
+      // Reset form and close dialog
+      setEditOpen(false);
+      setEditService(null);
+      setForm({ name: "", category: "", description: "" });
+    } catch (error) {
+      console.error('Update service error:', error);
+      toast({ title: "Error", description: "Failed to update service", variant: "destructive" });
+    }
   };
 
   const deleteService = (id: string) => {
     const svc = services.find((s) => s.id === id);
-    toast({ title: "Not Implemented", description: "Service deletion coming soon" });
+    
+    setConfirm({
+      open: true,
+      title: `Delete "${svc?.name}"?`,
+      description: "This will permanently remove the service and all its data. This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const response = await api.deleteService(id);
+          
+          if (!response.success) {
+            toast({ 
+              title: "Error", 
+              description: response.message || "Failed to delete service",
+              variant: "destructive"
+            });
+            return;
+          }
+
+          // Remove service from local state
+          setServices((prev) => prev.filter((s) => s.id !== id));
+          toast({ title: "Success", description: "Service deleted successfully" });
+        } catch (error) {
+          console.error('Delete service error:', error);
+          toast({ title: "Error", description: "Failed to delete service", variant: "destructive" });
+        }
+      }
+    });
   };
 
   const filtered = services.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.category.toLowerCase().includes(search.toLowerCase()));

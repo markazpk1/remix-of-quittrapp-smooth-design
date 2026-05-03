@@ -14,12 +14,30 @@ import ConfirmDialog from "../../components/admin/ConfirmDialog";
 import { Pencil, Trash2, Plus, GripVertical, Star, Eye, Globe, Search } from "lucide-react";
 import { toast } from "../../hooks/use-toast";
 import { api } from "../../services/api";
+import { 
+  fetchContentSectionsFromDatabase, 
+  updateContentSection,
+  updateContentSectionDetails,
+  fetchBlogPostsFromDatabase,
+  createBlogPost,
+  updateBlogPost,
+  deleteBlogPost,
+  fetchFaqsFromDatabase,
+  createFaq,
+  deleteFaq as deleteFaqFromDb,
+  fetchTestimonialsFromDatabase,
+  createTestimonial,
+  updateTestimonial,
+  deleteTestimonial as deleteTestimonialFromDb,
+  fetchSeoPagesFromDatabase,
+  updateSeoPage
+} from "../../services/supabase";
 
 interface BlogPost { id: string; title: string; status: string; date: string; views: number; author: string; category: string; }
 interface FaqItem { id: string; question: string; answer: string; category: string; order: number; }
 interface Testimonial { id: string; name: string; quote: string; rating: number; status: string; featured: boolean; }
 interface SeoPage { path: string; title: string; description: string; indexed: boolean; }
-interface Section { id: string; name: string; enabled: boolean; }
+interface Section { id: string; name: string; title?: string; subtitle?: string; content?: string; enabled: boolean; }
 
 export default function AdminContent() {
   const [sections, setSections] = useState<Section[]>([]);
@@ -35,6 +53,9 @@ export default function AdminContent() {
   const [postForm, setPostForm] = useState({ title: "", category: "Guide", author: "" });
   const [faqForm, setFaqForm] = useState({ question: "", answer: "", category: "Billing" });
   const [testimonialForm, setTestimonialForm] = useState({ name: "", quote: "", rating: 5 });
+  const [sectionEditOpen, setSectionEditOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [sectionForm, setSectionForm] = useState({ title: "", subtitle: "", content: "" });
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   useEffect(() => {
@@ -44,19 +65,94 @@ export default function AdminContent() {
   const fetchContentData = async () => {
     try {
       setLoading(true);
-      const [sectionsRes, postsRes, faqsRes, testimonialsRes, seoRes] = await Promise.all([
-        api.getContentSections(),
-        api.getBlogPosts(),
-        api.getFaqs(),
-        api.getTestimonials(),
-        api.getSeoPages(),
-      ]);
+      
+      // Fetch data from database (fallback to mock API if tables don't exist)
+      let sectionsRes, postsRes, faqsRes, testimonialsRes, seoRes;
+      
+      try {
+        sectionsRes = await fetchContentSectionsFromDatabase();
+      } catch (error) {
+        console.log('Content sections database not available, falling back to mock API');
+        sectionsRes = await api.getContentSections();
+      }
+      
+      try {
+        postsRes = await fetchBlogPostsFromDatabase();
+      } catch (error) {
+        console.log('Blog posts database not available, falling back to mock API');
+        postsRes = await api.getBlogPosts();
+      }
+      
+      try {
+        faqsRes = await fetchFaqsFromDatabase();
+      } catch (error) {
+        console.log('FAQs database not available, falling back to mock API');
+        faqsRes = await api.getFaqs();
+      }
+      
+      try {
+        testimonialsRes = await fetchTestimonialsFromDatabase();
+      } catch (error) {
+        console.log('Testimonials database not available, falling back to mock API');
+        testimonialsRes = await api.getTestimonials();
+      }
+      
+      try {
+        seoRes = await fetchSeoPagesFromDatabase();
+      } catch (error) {
+        console.log('SEO pages database not available, falling back to mock API');
+        seoRes = await api.getSeoPages();
+      }
 
-      setSections(Array.isArray(sectionsRes) ? sectionsRes : []);
-      setPosts(Array.isArray(postsRes) ? postsRes : []);
-      setFaqs(Array.isArray(faqsRes) ? faqsRes : []);
-      setTestimonials(Array.isArray(testimonialsRes) ? testimonialsRes : []);
-      setSeoPages(Array.isArray(seoRes) ? seoRes : []);
+      // Transform data to match interfaces
+      const transformedSections = (sectionsRes.data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name || 'Untitled',
+        title: item.title || '',
+        subtitle: item.subtitle || '',
+        content: item.content || '',
+        enabled: item.enabled !== false
+      }));
+
+      const transformedPosts = (postsRes.data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title || 'Untitled',
+        status: item.status || 'draft',
+        date: new Date(item.created_at || item.date).toLocaleDateString(),
+        views: item.views || 0,
+        author: item.author || 'Unknown',
+        category: item.category || 'Guide'
+      }));
+
+      const transformedFaqs = (faqsRes.data || []).map((item: any) => ({
+        id: item.id,
+        question: item.question || 'No question',
+        answer: item.answer || 'No answer',
+        category: item.category || 'General',
+        order: item.order_index || 0
+      }));
+
+      const transformedTestimonials = (testimonialsRes.data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name || 'Anonymous',
+        quote: item.quote || '',
+        rating: item.rating || 5,
+        status: item.status || 'pending',
+        featured: item.featured || false
+      }));
+
+      const transformedSeoPages = (seoRes.data || []).map((item: any) => ({
+        path: item.path || '/',
+        title: item.title || 'Untitled',
+        description: item.description || '',
+        indexed: item.indexed !== false
+      }));
+
+      setSections(transformedSections);
+      setPosts(transformedPosts);
+      setFaqs(transformedFaqs);
+      setTestimonials(transformedTestimonials);
+      setSeoPages(transformedSeoPages);
     } catch (error) {
       console.error('Failed to fetch content data:', error);
       toast({ title: "Error", description: "Failed to load content data" });
@@ -71,56 +167,328 @@ export default function AdminContent() {
     }
   };
 
-  const toggleSection = (id: string) => {
-    toast({ title: "Not Implemented", description: "Section toggle coming soon" });
+  const editSection = (section: Section) => {
+    setEditingSection(section);
+    setSectionForm({
+      title: section.title || '',
+      subtitle: section.subtitle || '',
+      content: section.content || ''
+    });
+    setSectionEditOpen(true);
+  };
+
+  const saveSectionEdit = async () => {
+    if (!editingSection) return;
+    
+    try {
+      const updateData = {
+        title: sectionForm.title.trim(),
+        subtitle: sectionForm.subtitle.trim(),
+        content: sectionForm.content.trim()
+      };
+
+      const result = await updateContentSectionDetails(editingSection.id, updateData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "Section updated successfully" });
+      setSectionEditOpen(false);
+      setEditingSection(null);
+      
+      // Refresh the sections list
+      await fetchContentData();
+    } catch (error) {
+      console.error('Save section edit error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update section", variant: "destructive" });
+    }
+  };
+
+  const toggleSection = async (id: string) => {
+    const section = sections.find(s => s.id === id);
+    if (!section) return;
+    
+    try {
+      const result = await updateContentSection(id, !section.enabled);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      // Update local state
+      setSections(prev => prev.map(s => 
+        s.id === id ? { ...s, enabled: !s.enabled } : s
+      ));
+      
+      toast({ title: "Success", description: `Section ${section.enabled ? 'disabled' : 'enabled'} successfully` });
+    } catch (error) {
+      console.error('Toggle section error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to toggle section", variant: "destructive" });
+    }
   };
 
   const filteredPosts = posts.filter((p) => p.title.toLowerCase().includes(blogSearch.toLowerCase()) || p.category.toLowerCase().includes(blogSearch.toLowerCase()));
 
-  const addPost = () => {
-    toast({ title: "Not Implemented", description: "Blog post creation coming soon" });
-    setAddPostOpen(false);
-    setPostForm({ title: "", category: "Guide", author: "" });
+  const addPost = async () => {
+    if (!postForm.title.trim() || !postForm.category || !postForm.author.trim()) {
+      toast({ title: "Error", description: "Title, category, and author are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const postData = {
+        title: postForm.title.trim(),
+        category: postForm.category,
+        author: postForm.author.trim(),
+        status: 'draft'
+      };
+
+      const result = await createBlogPost(postData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "Blog post created successfully" });
+      setAddPostOpen(false);
+      setPostForm({ title: "", category: "Guide", author: "" });
+      
+      // Refresh the posts list
+      await fetchContentData();
+    } catch (error) {
+      console.error('Add post error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to create blog post", variant: "destructive" });
+    }
   };
 
-  const publishPost = (id: string) => {
-    toast({ title: "Not Implemented", description: "Blog post publishing coming soon" });
+  const publishPost = async (id: string) => {
+    try {
+      const result = await updateBlogPost(id, { status: 'published' });
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Update local state
+      setPosts(prev => prev.map(post => 
+        post.id === id ? { ...post, status: 'published' } : post
+      ));
+      
+      toast({ title: "Success", description: "Blog post published successfully" });
+    } catch (error) {
+      console.error('Publish post error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to publish blog post", variant: "destructive" });
+    }
   };
 
-  const deletePost = (id: string) => {
-    toast({ title: "Not Implemented", description: "Blog post deletion coming soon" });
+  const deletePost = async (id: string) => {
+    const post = posts.find(p => p.id === id);
+    if (!post) return;
+    
+    setConfirm({
+      open: true,
+      title: `Delete "${post.title}"?`,
+      description: "This will permanently delete the blog post. This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const result = await deleteBlogPost(id);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Remove from local state
+          setPosts(prev => prev.filter(p => p.id !== id));
+          toast({ title: "Success", description: "Blog post deleted successfully" });
+        } catch (error) {
+          console.error('Delete post error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to delete blog post", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const addFaq = () => {
-    toast({ title: "Not Implemented", description: "FAQ creation coming soon" });
-    setAddFaqOpen(false);
-    setFaqForm({ question: "", answer: "", category: "Billing" });
+  const addFaq = async () => {
+    if (!faqForm.question.trim() || !faqForm.answer.trim() || !faqForm.category.trim()) {
+      toast({ title: "Error", description: "Question, answer, and category are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const faqData = {
+        question: faqForm.question.trim(),
+        answer: faqForm.answer.trim(),
+        category: faqForm.category.trim()
+      };
+
+      const result = await createFaq(faqData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "FAQ added successfully" });
+      setAddFaqOpen(false);
+      setFaqForm({ question: "", answer: "", category: "Billing" });
+      
+      // Refresh the FAQs list
+      await fetchContentData();
+    } catch (error) {
+      console.error('Add FAQ error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to add FAQ", variant: "destructive" });
+    }
   };
 
   const deleteFaq = (id: string) => {
-    toast({ title: "Not Implemented", description: "FAQ deletion coming soon" });
+    const faq = faqs.find(f => f.id === id);
+    if (!faq) return;
+    
+    setConfirm({
+      open: true,
+      title: `Delete FAQ?`,
+      description: "This will permanently delete the FAQ. This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const result = await deleteFaqFromDb(id);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Remove from local state
+          setFaqs(prev => prev.filter(f => f.id !== id));
+          toast({ title: "Success", description: "FAQ deleted successfully" });
+        } catch (error) {
+          console.error('Delete FAQ error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to delete FAQ", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const addTestimonial = () => {
-    toast({ title: "Not Implemented", description: "Testimonial creation coming soon" });
-    setAddTestimonialOpen(false);
-    setTestimonialForm({ name: "", quote: "", rating: 5 });
+  const addTestimonial = async () => {
+    if (!testimonialForm.name.trim() || !testimonialForm.quote.trim()) {
+      toast({ title: "Error", description: "Name and quote are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const testimonialData = {
+        name: testimonialForm.name.trim(),
+        quote: testimonialForm.quote.trim(),
+        rating: testimonialForm.rating
+      };
+
+      const result = await createTestimonial(testimonialData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "Testimonial added successfully" });
+      setAddTestimonialOpen(false);
+      setTestimonialForm({ name: "", quote: "", rating: 5 });
+      
+      // Refresh the testimonials list
+      await fetchContentData();
+    } catch (error) {
+      console.error('Add testimonial error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to add testimonial", variant: "destructive" });
+    }
   };
 
-  const toggleFeatured = (id: string) => { 
-    toast({ title: "Not Implemented", description: "Testimonial feature toggle coming soon" });
+  const toggleFeatured = async (id: string) => { 
+    const testimonial = testimonials.find(t => t.id === id);
+    if (!testimonial) return;
+    
+    try {
+      const result = await updateTestimonial(id, { featured: !testimonial.featured });
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Update local state
+      setTestimonials(prev => prev.map(t => 
+        t.id === id ? { ...t, featured: !t.featured } : t
+      ));
+      
+      toast({ title: "Success", description: `Testimonial ${testimonial.featured ? 'unfeatured' : 'featured'} successfully` });
+    } catch (error) {
+      console.error('Toggle featured error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to toggle testimonial featured status", variant: "destructive" });
+    }
   };
   
-  const approveTestimonial = (id: string) => { 
-    toast({ title: "Not Implemented", description: "Testimonial approval coming soon" });
+  const approveTestimonial = async (id: string) => { 
+    try {
+      const result = await updateTestimonial(id, { status: 'approved' });
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Update local state
+      setTestimonials(prev => prev.map(t => 
+        t.id === id ? { ...t, status: 'approved' } : t
+      ));
+      
+      toast({ title: "Success", description: "Testimonial approved successfully" });
+    } catch (error) {
+      console.error('Approve testimonial error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to approve testimonial", variant: "destructive" });
+    }
   };
 
   const deleteTestimonial = (id: string) => {
-    toast({ title: "Not Implemented", description: "Testimonial deletion coming soon" });
+    const testimonial = testimonials.find(t => t.id === id);
+    if (!testimonial) return;
+    
+    setConfirm({
+      open: true,
+      title: `Delete testimonial from "${testimonial.name}"?`,
+      description: "This will permanently delete the testimonial. This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const result = await deleteTestimonialFromDb(id);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Remove from local state
+          setTestimonials(prev => prev.filter(t => t.id !== id));
+          toast({ title: "Success", description: "Testimonial deleted successfully" });
+        } catch (error) {
+          console.error('Delete testimonial error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to delete testimonial", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const toggleIndexed = (path: string) => { 
-    toast({ title: "Not Implemented", description: "SEO settings update coming soon" });
+  const toggleIndexed = async (path: string) => { 
+    try {
+      const seoPage = seoPages.find(p => p.path === path);
+      if (!seoPage) return;
+      
+      const result = await updateSeoPage(path, !seoPage.indexed);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Update local state
+      setSeoPages(prev => prev.map(p => 
+        p.path === path ? { ...p, indexed: !p.indexed } : p
+      ));
+      
+      toast({ title: "Success", description: `SEO indexing ${seoPage.indexed ? 'disabled' : 'enabled'} for ${path}` });
+    } catch (error) {
+      console.error('Toggle indexed error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update SEO settings", variant: "destructive" });
+    }
   };
 
   return (
@@ -158,13 +526,65 @@ export default function AdminContent() {
                 sections.map((s) => (
                   <div key={s.id} className="flex items-center justify-between py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
                     <div className="flex items-center gap-3"><GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab" /><span className="text-sm text-foreground">{s.name}</span></div>
-                    <Switch checked={s.enabled} onCheckedChange={() => toggleSection(s.id)} />
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editSection(s)}>
+                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                      </Button>
+                      <Switch checked={s.enabled} onCheckedChange={() => toggleSection(s.id)} />
+                    </div>
                   </div>
                 ))
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
+      {/* Section Edit Dialog */}
+      <Dialog open={sectionEditOpen} onOpenChange={setSectionEditOpen}>
+        <DialogContent className="bg-card border-border/40 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">
+              Edit {editingSection?.name || 'Section'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input 
+                value={sectionForm.title} 
+                onChange={(e) => setSectionForm({ ...sectionForm, title: e.target.value })} 
+                placeholder="Section title" 
+                className="bg-secondary/40 border-border/30" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Subtitle</Label>
+              <Input 
+                value={sectionForm.subtitle} 
+                onChange={(e) => setSectionForm({ ...sectionForm, subtitle: e.target.value })} 
+                placeholder="Section subtitle" 
+                className="bg-secondary/40 border-border/30" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Content</Label>
+              <Textarea 
+                value={sectionForm.content} 
+                onChange={(e) => setSectionForm({ ...sectionForm, content: e.target.value })} 
+                placeholder="Section content" 
+                rows={4}
+                className="bg-secondary/40 border-border/30" 
+              />
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button onClick={saveSectionEdit}>Save Changes</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
         <TabsContent value="blog" className="space-y-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">

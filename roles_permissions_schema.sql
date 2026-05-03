@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS permissions (
 -- Insert default system roles
 INSERT INTO roles (name, color, system) VALUES 
   ('Admin', 'bg-primary/20 text-primary border-primary/30', true),
+  ('Moderator', 'bg-orange-100 text-orange-800 border-orange-300', true),
   ('User', 'bg-secondary text-muted-foreground border-border/30', true)
 ON CONFLICT (name) DO NOTHING;
 
@@ -35,6 +36,21 @@ FROM roles r,
   ('media'), ('api')
 ) AS p(key)
 WHERE r.name = 'Admin'
+ON CONFLICT (role_id, permission_key) DO NOTHING;
+
+-- Insert default permissions for Moderator role (limited access)
+INSERT INTO permissions (role_id, permission_key, enabled) 
+SELECT r.id, p.key, CASE 
+  WHEN p.key IN ('dashboard', 'content', 'support', 'reports') THEN true 
+  ELSE false 
+END
+FROM roles r, 
+(VALUES 
+  ('dashboard'), ('users'), ('content'), ('services'), ('billing'), 
+  ('settings'), ('audit'), ('support'), ('roles'), ('reports'), 
+  ('media'), ('api')
+) AS p(key)
+WHERE r.name = 'Moderator'
 ON CONFLICT (role_id, permission_key) DO NOTHING;
 
 -- Insert default permissions for User role (all disabled)

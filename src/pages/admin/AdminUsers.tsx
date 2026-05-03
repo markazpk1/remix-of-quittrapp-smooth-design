@@ -58,10 +58,23 @@ export default function AdminUsers() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<Array<{id: string; name: string; system: boolean}>>([]);
 
   useEffect(() => {
     fetchUsers();
+    fetchAvailableRoles();
   }, []);
+
+  const fetchAvailableRoles = async () => {
+    try {
+      const response = await api.getAllRoles();
+      if (response.success && Array.isArray(response.data)) {
+        setAvailableRoles(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch available roles:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -427,9 +440,11 @@ export default function AdminUsers() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border/40">
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="moderator">Moderator</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.name.toLowerCase()}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -475,7 +490,13 @@ export default function AdminUsers() {
           <div className="space-y-4 pt-2">
             <Select value={newRole} onValueChange={setNewRole}>
               <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue placeholder="Select role" /></SelectTrigger>
-              <SelectContent className="bg-card border-border/40"><SelectItem value="user">User</SelectItem><SelectItem value="moderator">Moderator</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent>
+              <SelectContent className="bg-card border-border/40">
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.name.toLowerCase()}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
             </Select>
             <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button onClick={changeRole}>Save</Button></DialogFooter>
           </div>

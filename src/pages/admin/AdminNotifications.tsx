@@ -13,6 +13,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Bell, Send, Plus, Users, Clock, CheckCircle2, Pencil, Trash2, Megaphone, Mail, Smartphone } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
+import { fetchNotificationCampaignsFromDatabase, createNotificationCampaign, updateNotificationCampaign, deleteNotificationCampaign } from "@/services/supabase";
 
 interface Notification {
   id: string; title: string; body: string; audience: string; channel: string; sent: string; delivered: number; opened: number; status: string;
@@ -37,12 +38,33 @@ export default function AdminNotifications() {
   const fetchNotificationData = async () => {
     try {
       setLoading(true);
-      const [campaignsRes, statsRes] = await Promise.all([
-        api.getNotificationCampaigns(),
-        api.getNotificationStats(),
-      ]);
+      
+      // Fetch campaigns from database (fallback to mock API if tables don't exist)
+      let campaignsRes;
+      try {
+        campaignsRes = await fetchNotificationCampaignsFromDatabase();
+      } catch (error) {
+        console.log('Notification campaigns database not available, falling back to mock API');
+        campaignsRes = await api.getNotificationCampaigns();
+      }
+      
+      // Fetch stats from API (for now)
+      const statsRes = await api.getNotificationStats();
 
-      setNotifications(Array.isArray(campaignsRes) ? campaignsRes : []);
+      // Transform campaigns data to match Notification interface
+      const transformedNotifications = (campaignsRes.data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title || 'Untitled',
+        body: item.body || '',
+        audience: item.audience || 'All Users',
+        channel: item.channel || 'Push',
+        sent: new Date(item.sent_at || item.created_at).toLocaleDateString(),
+        delivered: item.delivered_count || 0,
+        opened: item.opened_count || 0,
+        status: item.status || 'draft'
+      }));
+
+      setNotifications(transformedNotifications);
     } catch (error) {
       console.error('Failed to fetch notification data:', error);
       toast({ title: "Error", description: "Failed to load notification data" });
@@ -58,19 +80,96 @@ export default function AdminNotifications() {
   const totalDelivered = notifications.reduce((a, n) => a + n.delivered, 0);
   const totalOpened = notifications.reduce((a, n) => a + n.opened, 0);
 
-  const createNotification = (asDraft: boolean) => {
-    toast({ title: "Not Implemented", description: "Notification creation coming soon" });
-    setAddOpen(false);
-    setForm({ title: "", body: "", audience: "", channel: "" });
+  const createNotification = async (asDraft: boolean) => {
+    if (!form.title.trim() || !form.body.trim() || !form.audience || !form.channel) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const campaignData = {
+        title: form.title.trim(),
+        body: form.body.trim(),
+        audience: form.audience,
+        channel: form.channel,
+        status: asDraft ? 'draft' : 'sent'
+      };
+
+      const result = await createNotificationCampaign(campaignData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: `Notification ${asDraft ? 'saved as draft' : 'sent'} successfully` });
+      setAddOpen(false);
+      setForm({ title: "", body: "", audience: "", channel: "" });
+      
+      // Refresh the notifications list
+      await fetchNotificationData();
+    } catch (error) {
+      console.error('Create notification error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to create notification", variant: "destructive" });
+    }
   };
 
-  const deleteNotification = (id: string) => {
-    toast({ title: "Not Implemented", description: "Notification deletion coming soon" });
+  const deleteNotification = async (id: string) => {
+    const notification = notifications.find(n => n.id === id);
+    if (!notification) return;
+    
+    setConfirm({
+      open: true,
+      title: `Delete "${notification.title}"?`,
+      description: "This will permanently delete the notification campaign. This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const result = await deleteNotificationCampaign(id);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
+          
+          // Remove from local state
+          setNotifications(prev => prev.filter(n => n.id !== id));
+          toast({ title: "Success", description: "Notification deleted successfully" });
+        } catch (error) {
+          console.error('Delete notification error:', error);
+          toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to delete notification", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const saveEdit = () => {
-    toast({ title: "Not Implemented", description: "Notification editing coming soon" });
-    setEditOpen(false);
+  const saveEdit = async () => {
+    if (!editNotif || !form.title.trim() || !form.body.trim() || !form.audience || !form.channel) {
+      toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const updateData = {
+        title: form.title.trim(),
+        body: form.body.trim(),
+        audience: form.audience,
+        channel: form.channel
+      };
+
+      const result = await updateNotificationCampaign(editNotif.id, updateData);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      toast({ title: "Success", description: "Notification updated successfully" });
+      setEditOpen(false);
+      setEditNotif(null);
+      
+      // Refresh the notifications list
+      await fetchNotificationData();
+    } catch (error) {
+      console.error('Save edit error:', error);
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update notification", variant: "destructive" });
+    }
   };
 
   return (
