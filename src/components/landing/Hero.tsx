@@ -23,7 +23,12 @@ const activityItems = [
   { icon: TrendingUp, text: "Revenue up 23%", time: "1h ago", color: "text-primary" },
 ];
 
-export default function Hero() {
+interface HeroProps {
+  title?: string;
+  subtitle?: string;
+}
+
+export default function Hero({ title, subtitle }: HeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -63,12 +68,16 @@ export default function Hero() {
             </motion.div>
 
             <motion.h1 {...fadeUp(0.1)} className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              Build faster.{" "}
-              <span className="text-gradient-purple">Launch smarter.</span>
+              {title || (
+                <>
+                  Build faster.{" "}
+                  <span className="text-gradient-purple">Launch smarter.</span>
+                </>
+              )}
             </motion.h1>
 
             <motion.p {...fadeUp(0.2)} className="text-lg text-muted-foreground max-w-lg mb-8 leading-relaxed">
-              The all-in-one platform that helps teams ship products 10x faster with AI-powered workflows, real-time collaboration, and seamless integrations.
+              {subtitle || "The all-in-one platform that helps teams ship products 10x faster with AI-powered workflows, real-time collaboration, and seamless integrations."}
             </motion.p>
 
             <motion.div {...fadeUp(0.3)} className="flex flex-wrap gap-4">

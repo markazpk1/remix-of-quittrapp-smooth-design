@@ -57,12 +57,12 @@ export default function AdminReports() {
         api.getFeatureUsage(),
       ]);
 
-      setKpis(Array.isArray(kpisRes) ? kpisRes : []);
-      setUserGrowth(Array.isArray(userGrowthRes) ? userGrowthRes : []);
-      setRevenueData(Array.isArray(revenueRes) ? revenueRes : []);
-      setRetentionData(Array.isArray(retentionRes) ? retentionRes : []);
-      setPlanDistribution(Array.isArray(planRes) ? planRes : []);
-      setFeatureUsage(Array.isArray(featureRes) ? featureRes : []);
+      setKpis(kpisRes.success && Array.isArray(kpisRes.data) ? kpisRes.data : []);
+      setUserGrowth(userGrowthRes.success && Array.isArray(userGrowthRes.data) ? userGrowthRes.data : []);
+      setRevenueData(revenueRes.success && Array.isArray(revenueRes.data) ? revenueRes.data : []);
+      setRetentionData(retentionRes.success && Array.isArray(retentionRes.data) ? retentionRes.data : []);
+      setPlanDistribution(planRes.success && Array.isArray(planRes.data) ? planRes.data : []);
+      setFeatureUsage(featureRes.success && Array.isArray(featureRes.data) ? featureRes.data : []);
     } catch (error) {
       console.error('Failed to fetch reports data:', error);
       toast({ title: "Error", description: "Failed to load reports data" });

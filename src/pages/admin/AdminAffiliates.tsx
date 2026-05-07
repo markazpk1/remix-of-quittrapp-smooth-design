@@ -155,61 +155,201 @@ export default function AdminAffiliates() {
   });
 
   const openAdd = () => {
-    toast({ title: "Not Implemented", description: "Affiliate creation coming soon" });
+    setEditingAffiliate(null);
+    setFormName("");
+    setFormEmail("");
+    setFormCode("");
+    setFormTier("bronze");
+    setFormRate("15");
+    setFormPayoutMethod("PayPal");
+    setFormWebsite("");
+    setShowAffiliateDialog(true);
   };
 
   const openEdit = (a: Affiliate) => {
-    toast({ title: "Not Implemented", description: "Affiliate editing coming soon" });
+    setEditingAffiliate(a);
+    setFormName(a.name);
+    setFormEmail(a.email);
+    setFormCode(a.code);
+    setFormTier(a.tier);
+    setFormRate(a.commissionRate.toString());
+    setFormPayoutMethod(a.payoutMethod);
+    setFormWebsite(a.website || "");
+    setShowAffiliateDialog(true);
   };
 
-  const saveAffiliate = () => {
-    toast({ title: "Not Implemented", description: "Affiliate save coming soon" });
-    setShowAffiliateDialog(false);
+  const saveAffiliate = async () => {
+    try {
+      const data = {
+        name: formName,
+        email: formEmail,
+        code: formCode,
+        tier: formTier,
+        commissionRate: Number(formRate),
+        payoutMethod: formPayoutMethod,
+        website: formWebsite
+      };
+
+      let res;
+      if (editingAffiliate) {
+        res = await api.updateAffiliate(editingAffiliate.id, data);
+      } else {
+        res = await api.addAffiliate(data);
+      }
+
+      if (res.success) {
+        toast({ title: "Success", description: res.message });
+        setShowAffiliateDialog(false);
+        fetchAffiliateData();
+      } else {
+        throw new Error(res.message);
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   const deleteAffiliate = (a: Affiliate) => {
-    toast({ title: "Not Implemented", description: "Affiliate deletion coming soon" });
+    setConfirm({
+      open: true,
+      title: "Delete Affiliate",
+      description: `Are you sure you want to delete ${a.name}? This will also delete their referral history.`,
+      onConfirm: async () => {
+        try {
+          const res = await api.deleteAffiliate(a.id);
+          if (res.success) {
+            toast({ title: "Deleted", description: res.message });
+            fetchAffiliateData();
+          }
+        } catch (error) {
+          toast({ title: "Error", description: "Failed to delete affiliate", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const toggleStatus = (a: Affiliate, newStatus: Affiliate["status"]) => {
-    toast({ title: "Not Implemented", description: "Status toggle coming soon" });
+  const toggleStatus = async (a: Affiliate, newStatus: Affiliate["status"]) => {
+    try {
+      const res = await api.updateAffiliateStatus(a.id, newStatus);
+      if (res.success) {
+        toast({ title: "Status Updated", description: res.message });
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    }
   };
 
   const copyCode = (code: string) => {
-    toast({ title: "Not Implemented", description: "Code copying coming soon" });
+    navigator.clipboard.writeText(code);
+    toast({ title: "Copied", description: "Referral code copied to clipboard" });
   };
 
   const copyLink = (code: string) => {
-    toast({ title: "Not Implemented", description: "Link copying coming soon" });
+    const link = `${window.location.origin}/join?ref=${code}`;
+    navigator.clipboard.writeText(link);
+    toast({ title: "Copied", description: "Referral link copied to clipboard" });
   };
 
-  const processPayout = (p: Payout) => {
-    toast({ title: "Not Implemented", description: "Payout processing coming soon" });
+  const processPayout = async (p: Payout) => {
+    try {
+      const res = await api.processPayout(p.id);
+      if (res.success) {
+        toast({ title: "Payout Processed", description: res.message });
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to process payout", variant: "destructive" });
+    }
   };
 
   const rejectPayout = (p: Payout) => {
-    toast({ title: "Not Implemented", description: "Payout rejection coming soon" });
+    setConfirm({
+      open: true,
+      title: "Reject Payout",
+      description: "Are you sure you want to reject this payout request?",
+      onConfirm: async () => {
+        try {
+          const res = await api.rejectPayout(p.id);
+          if (res.success) {
+            toast({ title: "Payout Rejected", description: res.message });
+            fetchAffiliateData();
+          }
+        } catch (error) {
+          toast({ title: "Error", description: "Failed to reject payout", variant: "destructive" });
+        }
+      }
+    });
   };
 
-  const approveReferral = (r: Referral) => {
-    toast({ title: "Not Implemented", description: "Referral approval coming soon" });
+  const approveReferral = async (r: Referral) => {
+    try {
+      const res = await api.approveReferral(r.id);
+      if (res.success) {
+        toast({ title: "Referral Approved", description: res.message });
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to approve referral", variant: "destructive" });
+    }
   };
 
   const rejectReferral = (r: Referral) => {
-    toast({ title: "Not Implemented", description: "Referral rejection coming soon" });
+    setConfirm({
+      open: true,
+      title: "Reject Referral",
+      description: "Are you sure you want to reject this referral commission?",
+      onConfirm: async () => {
+        try {
+          const res = await api.rejectReferral(r.id);
+          if (res.success) {
+            toast({ title: "Referral Rejected", description: res.message });
+            fetchAffiliateData();
+          }
+        } catch (error) {
+          toast({ title: "Error", description: "Failed to reject referral", variant: "destructive" });
+        }
+      }
+    });
   };
 
   const openTierEdit = (t: TierConfig) => {
-    toast({ title: "Not Implemented", description: "Tier editing coming soon" });
+    setEditingTier(t);
+    setTierFormRate(t.commissionRate.toString());
+    setTierFormMin(t.minConversions.toString());
+    setTierFormBonus(t.bonus.toString());
+    setShowTierDialog(true);
   };
 
-  const saveTier = () => {
-    toast({ title: "Not Implemented", description: "Tier save coming soon" });
-    setShowTierDialog(false);
+  const saveTier = async () => {
+    if (!editingTier) return;
+    try {
+      const res = await api.updateAffiliateTier(editingTier.name, {
+        commissionRate: Number(tierFormRate),
+        minConversions: Number(tierFormMin),
+        bonus: Number(tierFormBonus)
+      });
+      if (res.success) {
+        toast({ title: "Tier Updated", description: res.message });
+        setShowTierDialog(false);
+        fetchAffiliateData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update tier", variant: "destructive" });
+    }
   };
 
   const exportCSV = () => {
-    toast({ title: "Not Implemented", description: "CSV export coming soon" });
+    const headers = ["Name", "Email", "Code", "Tier", "Status", "Earnings", "Clicks"];
+    const rows = filtered.map(a => [a.name, a.email, a.code, a.tier, a.status, a.totalEarned, a.totalClicks]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "affiliates.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const statusBadge = (s: string) => {

@@ -55,8 +55,8 @@ export default function AdminAuditLogs() {
       setLoading(true);
       const response = await api.getAuditLogs({ limit: 100 });
       
-      if (response.logs && Array.isArray(response.logs)) {
-        setLogs(response.logs);
+      if (response.success && Array.isArray(response.data)) {
+        setLogs(response.data);
       } else {
         setLogs([]);
         console.warn('Unexpected audit logs response:', response);
@@ -79,7 +79,17 @@ export default function AdminAuditLogs() {
   });
 
   const exportLogs = () => {
-    toast({ title: "Not Implemented", description: "CSV export coming soon" });
+    const headers = ["Timestamp", "Action", "Actor", "Target", "Severity", "IP"];
+    const rows = filtered.map(l => [l.timestamp, l.action, l.actor, l.target, l.severity, l.ip]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `audit_logs_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Success", description: "Audit logs exported successfully" });
   };
 
   return (

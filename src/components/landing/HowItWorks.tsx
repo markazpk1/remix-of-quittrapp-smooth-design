@@ -27,16 +27,20 @@ const steps = [
   },
 ];
 
-export default function HowItWorks() {
+export default function HowItWorks({ title, subtitle }: { title?: string; subtitle?: string }) {
   return (
     <section className="py-24" id="how-it-works">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16 animate-scroll-in">
           <h2 className="font-display text-3xl sm:text-4xl font-bold mb-4">
-            How it <span className="text-gradient-purple">works</span>
+            {title || (
+              <>
+                How it <span className="text-gradient-purple">works</span>
+              </>
+            )}
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Go from zero to production in four simple steps.
+            {subtitle || "Go from zero to production in four simple steps."}
           </p>
         </div>
 

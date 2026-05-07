@@ -9,16 +9,20 @@ const creators = [
   { name: "Leo Martinez", handle: "@leomartz", role: "Co-founder, Rapid" },
 ];
 
-export default function Creators() {
+export default function Creators({ title, subtitle }: { title?: string; subtitle?: string }) {
   return (
     <section className="py-24">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16 animate-scroll-in">
           <h2 className="font-display text-3xl sm:text-4xl font-bold mb-4">
-            Loved by <span className="text-gradient-purple">builders</span>
+            {title || (
+              <>
+                Loved by <span className="text-gradient-purple">builders</span>
+              </>
+            )}
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Join thousands of creators and engineering leaders who trust LaunchKit.
+            {subtitle || "Join thousands of creators and engineering leaders who trust LaunchKit."}
           </p>
         </div>
 

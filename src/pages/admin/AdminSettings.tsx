@@ -80,41 +80,118 @@ export default function AdminSettings() {
     }
   };
 
-  const toggleFeature = (index: number) => {
+  const toggleFeature = async (index: number) => {
     if (!generalSettings) return;
-    toast({ title: "Not Implemented", description: "Feature toggle coming soon" });
+    const newFeatures = [...generalSettings.features];
+    newFeatures[index].value = !newFeatures[index].value;
+    const updated = { ...generalSettings, features: newFeatures };
+    setGeneralSettings(updated);
+    await api.updateGeneralSettings(updated);
+    toast({ title: "Updated", description: `${newFeatures[index].label} toggled` });
   };
 
-  const toggleSecurity = (index: number) => {
-    toast({ title: "Not Implemented", description: "Security setting toggle coming soon" });
+  const toggleSecurity = async (index: number) => {
+    if (!securitySettings) return;
+    const newSettings = [...securitySettings.settings];
+    newSettings[index].value = !newSettings[index].value;
+    const updated = { ...securitySettings, settings: newSettings };
+    setSecuritySettings(updated);
+    await api.updateSecuritySettings(updated);
+    toast({ title: "Updated", description: `${newSettings[index].label} toggled` });
   };
 
-  const toggleIntegration = (name: string) => {
-    toast({ title: "Not Implemented", description: "Integration toggle coming soon" });
+  const toggleIntegration = async (name: string) => {
+    try {
+      const res = await api.toggleIntegration(name);
+      if (res.success) {
+        toast({ title: "Success", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to toggle integration", variant: "destructive" });
+    }
   };
 
-  const rotateKey = (name: string) => {
-    toast({ title: "Not Implemented", description: "API key rotation coming soon" });
+  const rotateKey = async (name: string) => {
+    try {
+      const res = await api.rotateApiKey(name);
+      if (res.success) {
+        toast({ title: "Rotated", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to rotate key", variant: "destructive" });
+    }
   };
 
-  const revokeKey = (name: string) => {
-    toast({ title: "Not Implemented", description: "API key revocation coming soon" });
+  const revokeKey = async (name: string) => {
+    try {
+      const res = await api.revokeApiKey(name);
+      if (res.success) {
+        toast({ title: "Revoked", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to revoke key", variant: "destructive" });
+    }
   };
 
   const copyKey = (key: string) => {
-    toast({ title: "Not Implemented", description: "Key copying coming soon" });
+    navigator.clipboard.writeText(key);
+    toast({ title: "Copied", description: "API key copied to clipboard" });
   };
 
-  const saveGeneralSettings = () => {
-    toast({ title: "Not Implemented", description: "Settings save coming soon" });
+  const saveGeneralSettings = async () => {
+    if (!generalSettings) return;
+    try {
+      const res = await api.updateGeneralSettings(generalSettings);
+      if (res.success) {
+        toast({ title: "Success", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
+    }
   };
 
-  const saveBranding = () => {
-    toast({ title: "Not Implemented", description: "Branding save coming soon" });
+  const saveBranding = async () => {
+    if (!brandingSettings) return;
+    try {
+      const res = await api.updateBrandingSettings(brandingSettings);
+      if (res.success) {
+        toast({ title: "Success", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save branding", variant: "destructive" });
+    }
   };
 
-  const saveSecuritySettings = () => {
-    toast({ title: "Not Implemented", description: "Security settings save coming soon" });
+  const saveSecuritySettings = async () => {
+    if (!securitySettings) return;
+    try {
+      const res = await api.updateSecuritySettings(securitySettings);
+      if (res.success) {
+        toast({ title: "Success", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save security settings", variant: "destructive" });
+    }
+  };
+
+  const generateNewKey = async () => {
+    const name = prompt("Enter a name for the new API key:");
+    if (!name) return;
+    try {
+      const res = await api.generateApiKey(name);
+      if (res.success) {
+        toast({ title: "Success", description: res.message });
+        fetchSettingsData();
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to generate key", variant: "destructive" });
+    }
   };
 
   return (
@@ -144,11 +221,11 @@ export default function AdminSettings() {
               <Card className="bg-card/60 border-border/40">
                 <CardHeader><CardTitle className="text-sm font-medium text-foreground">Platform Settings</CardTitle></CardHeader>
                 <CardContent className="space-y-4 max-w-xl">
-                  <div className="space-y-2"><Label>Site Name</Label><Input defaultValue={generalSettings?.siteName || "QuittrApp"} className="bg-secondary/40 border-border/30" /></div>
-                  <div className="space-y-2"><Label>Support Email</Label><Input defaultValue={generalSettings?.supportEmail || "support@quittrapp.com"} className="bg-secondary/40 border-border/30" /></div>
-                  <div className="space-y-2"><Label>Site URL</Label><Input defaultValue={generalSettings?.siteUrl || "https://quittrapp.com"} className="bg-secondary/40 border-border/30" /></div>
+                  <div className="space-y-2"><Label>Site Name</Label><Input value={generalSettings?.siteName || ""} onChange={e => setGeneralSettings(prev => prev ? {...prev, siteName: e.target.value} : null)} className="bg-secondary/40 border-border/30" /></div>
+                  <div className="space-y-2"><Label>Support Email</Label><Input value={generalSettings?.supportEmail || ""} onChange={e => setGeneralSettings(prev => prev ? {...prev, supportEmail: e.target.value} : null)} className="bg-secondary/40 border-border/30" /></div>
+                  <div className="space-y-2"><Label>Site URL</Label><Input value={generalSettings?.siteUrl || ""} onChange={e => setGeneralSettings(prev => prev ? {...prev, siteUrl: e.target.value} : null)} className="bg-secondary/40 border-border/30" /></div>
                   <div className="space-y-2"><Label>Default Timezone</Label>
-                    <Select defaultValue={generalSettings?.defaultTimezone || "utc"}>
+                    <Select value={generalSettings?.defaultTimezone || "utc"} onValueChange={v => setGeneralSettings(prev => prev ? {...prev, defaultTimezone: v} : null)}>
                       <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-card border-border/40">
                         <SelectItem value="utc">UTC</SelectItem>
@@ -218,11 +295,11 @@ export default function AdminSettings() {
                   <div className="space-y-2"><Label>Brand Color</Label>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-primary border-2 border-border/40" style={{ backgroundColor: brandingSettings?.brandColor || "#7C3AED" }} />
-                      <Input defaultValue={brandingSettings?.brandColor || "#7C3AED"} className="bg-secondary/40 border-border/30 w-32" />
+                      <Input value={brandingSettings?.brandColor || ""} onChange={e => setBrandingSettings(prev => prev ? {...prev, brandColor: e.target.value} : null)} className="bg-secondary/40 border-border/30 w-32" />
                     </div>
                   </div>
                   <div className="space-y-2"><Label>App Description</Label>
-                    <Textarea defaultValue={brandingSettings?.appDescription || "Break free from addiction with science-backed tools."} rows={3} className="bg-secondary/40 border-border/30" />
+                    <Textarea value={brandingSettings?.appDescription || ""} onChange={e => setBrandingSettings(prev => prev ? {...prev, appDescription: e.target.value} : null)} rows={3} className="bg-secondary/40 border-border/30" />
                   </div>
                 </CardContent>
               </Card>
@@ -340,7 +417,7 @@ export default function AdminSettings() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-foreground">API Keys</CardTitle>
-                  <Button size="sm" className="text-xs" onClick={() => toast({ title: "Not Implemented", description: "API key generation coming soon" })}>
+                  <Button size="sm" className="text-xs" onClick={generateNewKey}>
                     <Key className="w-3 h-3 mr-1.5" /> Generate Key
                   </Button>
                 </div>
@@ -412,7 +489,7 @@ export default function AdminSettings() {
                 <CardContent className="space-y-4 max-w-xl">
                   <div className="space-y-2">
                     <Label>Minimum Password Length</Label>
-                    <Input type="number" defaultValue={securitySettings?.passwordPolicy?.minLength || 8} className="bg-secondary/40 border-border/30 w-24" />
+                    <Input type="number" value={securitySettings?.passwordPolicy?.minLength || 8} onChange={e => setSecuritySettings(prev => prev ? {...prev, passwordPolicy: { minLength: Number(e.target.value) }} : null)} className="bg-secondary/40 border-border/30 w-24" />
                   </div>
                   <Button onClick={saveSecuritySettings}>Save Security Settings</Button>
                 </CardContent>

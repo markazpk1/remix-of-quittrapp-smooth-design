@@ -124,6 +124,8 @@ export interface ApiMethods {
   getSeoPages(): Promise<ApiResponse>;
   getMediaFiles(): Promise<ApiResponse>;
   getStorageStats(): Promise<ApiResponse>;
+  uploadMediaFile(file: File): Promise<ApiResponse>;
+  deleteMediaFile(id: string): Promise<ApiResponse>;
   getKpis(): Promise<ApiResponse>;
   getReportsUserGrowth(): Promise<ApiResponse>;
   getRevenue(): Promise<ApiResponse>;
@@ -135,7 +137,16 @@ export interface ApiMethods {
   getAffiliatePayouts(): Promise<ApiResponse>;
   getAffiliateReferrals(): Promise<ApiResponse>;
   getAffiliateTiers(): Promise<ApiResponse>;
-  getAuditLogs(): Promise<ApiResponse>;
+  addAffiliate(data: any): Promise<ApiResponse>;
+  updateAffiliate(id: string, data: any): Promise<ApiResponse>;
+  deleteAffiliate(id: string): Promise<ApiResponse>;
+  updateAffiliateStatus(id: string, status: string): Promise<ApiResponse>;
+  processPayout(id: string): Promise<ApiResponse>;
+  rejectPayout(id: string): Promise<ApiResponse>;
+  approveReferral(id: string): Promise<ApiResponse>;
+  rejectReferral(id: string): Promise<ApiResponse>;
+  updateAffiliateTier(tierName: string, data: any): Promise<ApiResponse>;
+  getAuditLogs(params?: { limit?: number; offset?: number; severity?: string; category?: string }): Promise<ApiResponse>;
   getAuditStats(): Promise<ApiResponse>;
   getGeneralSettings(): Promise<ApiResponse>;
   getBrandingSettings(): Promise<ApiResponse>;
@@ -143,4 +154,11 @@ export interface ApiMethods {
   getIntegrations(): Promise<ApiResponse>;
   getApiKeys(): Promise<ApiResponse>;
   getSecuritySettings(): Promise<ApiResponse>;
+  updateGeneralSettings(data: any): Promise<ApiResponse>;
+  updateBrandingSettings(data: any): Promise<ApiResponse>;
+  updateSecuritySettings(data: any): Promise<ApiResponse>;
+  toggleIntegration(name: string): Promise<ApiResponse>;
+  rotateApiKey(name: string): Promise<ApiResponse>;
+  revokeApiKey(name: string): Promise<ApiResponse>;
+  generateApiKey(name: string): Promise<ApiResponse>;
 }

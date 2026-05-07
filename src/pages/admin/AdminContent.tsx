@@ -11,13 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
-import { Pencil, Trash2, Plus, GripVertical, Star, Eye, Globe, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, GripVertical, Star, Eye, Globe, Search, LayoutTemplate } from "lucide-react";
 import { toast } from "../../hooks/use-toast";
 import { api } from "../../services/api";
+import GrapesJSBuilder from "../../components/admin/GrapesJSBuilder";
+import ProfessionalLandingBuilder from "../../components/admin/ProfessionalLandingBuilder";
 import { 
   fetchContentSectionsFromDatabase, 
   updateContentSection,
   updateContentSectionDetails,
+  updateContentSectionOrder,
   fetchBlogPostsFromDatabase,
   createBlogPost,
   updateBlogPost,
@@ -57,6 +60,8 @@ export default function AdminContent() {
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [sectionForm, setSectionForm] = useState({ title: "", subtitle: "", content: "" });
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
+  const [uploadedTemplate, setUploadedTemplate] = useState<{ html: string; css: string } | null>(null);
+  const [grapesKey, setGrapesKey] = useState(0);
 
   useEffect(() => {
     fetchContentData();
@@ -113,6 +118,25 @@ export default function AdminContent() {
         content: item.content || '',
         enabled: item.enabled !== false
       }));
+
+      // If no sections in DB and current local sections is empty, use defaults
+      if (transformedSections.length === 0 && sections.length === 0) {
+        const defaultSections = [
+          { id: 'hero-1', name: 'Hero', enabled: true },
+          { id: 'stats-1', name: 'Stats', enabled: true },
+          { id: 'how-1', name: 'How It Works', enabled: true },
+          { id: 'creators-1', name: 'Creators', enabled: true },
+          { id: 'testimonials-1', name: 'Testimonials', enabled: true },
+          { id: 'features-1', name: 'Features Grid', enabled: true },
+          { id: 'pricing-1', name: 'Pricing', enabled: true },
+          { id: 'faq-1', name: 'FAQ', enabled: true }
+        ];
+        setSections(defaultSections as any);
+      } else if (transformedSections.length > 0) {
+        // Remove any exact duplicates by name if they somehow slipped in
+        const uniqueSections = transformedSections.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+        setSections(uniqueSections);
+      }
 
       const transformedPosts = (postsRes.data || []).map((item: any) => ({
         id: item.id,
@@ -226,6 +250,38 @@ export default function AdminContent() {
       console.error('Toggle section error:', error);
       toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to toggle section", variant: "destructive" });
     }
+  };
+
+  const handleTemplateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        // Simple extraction of CSS from <style> tags if they exist
+        let html = content;
+        let css = "";
+        
+        const styleMatch = content.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+        if (styleMatch) {
+          css = styleMatch[1];
+          html = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+        }
+
+        // Strip body/html tags if they exist as GrapesJS likes component fragments
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        if (bodyMatch) {
+          html = bodyMatch[1];
+        }
+
+        setUploadedTemplate({ html, css });
+        setGrapesKey(prev => prev + 1); // Force GrapesJS to re-initialize
+        toast({ title: "Template Loaded", description: "Your HTML file has been imported into the editor." });
+      }
+    };
+    reader.readAsText(file);
   };
 
   const filteredPosts = posts.filter((p) => p.title.toLowerCase().includes(blogSearch.toLowerCase()) || p.category.toLowerCase().includes(blogSearch.toLowerCase()));
@@ -503,40 +559,127 @@ export default function AdminContent() {
         </TabsList>
 
         <TabsContent value="landing" className="space-y-4">
-          <Card className="bg-card/60 border-border/40">
-            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-foreground">Page Sections</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {loading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center justify-between py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="w-4 h-4" />
-                        <Skeleton className="h-4 w-32" />
-                      </div>
-                      <Skeleton className="w-12 h-6" />
-                    </div>
-                  ))}
-                </div>
-              ) : sections.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                  No sections found
-                </div>
-              ) : (
-                sections.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between py-3 px-3 rounded-lg bg-secondary/20 border border-border/20">
-                    <div className="flex items-center gap-3"><GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab" /><span className="text-sm text-foreground">{s.name}</span></div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editSection(s)}>
-                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                      </Button>
-                      <Switch checked={s.enabled} onCheckedChange={() => toggleSection(s.id)} />
-                    </div>
+          <Tabs defaultValue="visual" className="w-full">
+            <TabsList className="bg-secondary/20 mb-4">
+              <TabsTrigger value="visual" className="text-xs">Visual Page Builder</TabsTrigger>
+              <TabsTrigger value="grapes" className="text-xs">GrapesJS (HTML/CSS)</TabsTrigger>
+              <TabsTrigger value="list" className="text-xs">Section List</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="visual" className="space-y-4">
+              <ProfessionalLandingBuilder 
+                initialSections={sections.map(s => ({
+                  id: s.id,
+                  type: s.name.toLowerCase().replace(/\s+/g, '-'),
+                  label: s.name,
+                  enabled: s.enabled,
+                  content: {
+                    title: s.title,
+                    subtitle: s.subtitle,
+                    // Parse content if it's JSON, otherwise treat as raw
+                    ...(s.content && s.content.startsWith('{') ? JSON.parse(s.content) : { rawContent: s.content })
+                  }
+                }))}
+                onSave={async (updatedSections) => {
+                  try {
+                    // Update order and details for all sections
+                    await updateContentSectionOrder(updatedSections.map((s, index) => ({
+                      id: s.id,
+                      name: s.label,
+                      order_index: index
+                    })));
+
+                    // Update details for each section
+                    for (const s of updatedSections) {
+                      await updateContentSectionDetails(s.id, {
+                        title: s.content.title || '',
+                        subtitle: s.content.subtitle || '',
+                        enabled: s.enabled,
+                        // If it's not a special section, we can store other content fields
+                        content: s.content.rawContent || (Object.keys(s.content).length > 2 ? JSON.stringify(s.content) : '')
+                      });
+                    }
+
+                    toast({ title: "Success", description: "Landing page updated successfully" });
+                    await fetchContentData();
+                  } catch (error) {
+                    console.error("Save builder error:", error);
+                    toast({ title: "Error", description: "Failed to save changes", variant: "destructive" });
+                  }
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="grapes" className="space-y-4">
+              <div className="flex justify-end mb-2">
+                <input 
+                  type="file" 
+                  id="template-upload" 
+                  accept=".html,.htm" 
+                  className="hidden" 
+                  onChange={handleTemplateUpload}
+                />
+                <Button variant="outline" size="sm" onClick={() => document.getElementById('template-upload')?.click()}>
+                  <LayoutTemplate size={14} className="mr-2" />
+                  Upload HTML Template
+                </Button>
+              </div>
+              <GrapesJSBuilder
+                key={grapesKey}
+                initialHtml={uploadedTemplate?.html}
+                initialCss={uploadedTemplate?.css}
+                onSave={async (html, css) => {
+                  try {
+                    await updateContentSectionDetails('Landing Page', {
+                      content: JSON.stringify({ html, css }),
+                      name: 'Landing Page'
+                    });
+                    toast({ title: "Success", description: "GrapesJS content saved" });
+                    await fetchContentData();
+                  } catch (error) {
+                    toast({ title: "Error", description: "Failed to save GrapesJS content", variant: "destructive" });
+                  }
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="list" className="space-y-4">
+              <Card className="bg-card/60 border-border/40">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium">Manage Individual Sections</CardTitle>
+                    <Button variant="outline" size="sm" onClick={() => fetchContentData()}>
+                      Refresh
+                    </Button>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border/20">
+                    {sections.map((section) => (
+                      <div key={section.id} className="flex items-center justify-between p-4">
+                        <div className="flex items-center gap-3">
+                          <GripVertical className="w-4 h-4 text-muted-foreground/30" />
+                          <div>
+                            <div className="text-sm font-medium text-foreground">{section.name}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase">{section.id}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Switch 
+                            checked={section.enabled} 
+                            onCheckedChange={() => toggleSection(section.id)} 
+                          />
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editSection(section)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
       {/* Section Edit Dialog */}

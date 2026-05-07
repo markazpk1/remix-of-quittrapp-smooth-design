@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
 
 interface MediaFile {
-  id: string; name: string; type: string; size: string; dimensions: string; uploaded: string; usedIn: string;
+  id: string; name: string; type: string; size: string; dimensions: string; uploaded: string; usedIn: string; url?: string;
 }
 
 interface StorageStats {
@@ -34,6 +34,8 @@ export default function AdminMedia() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   useEffect(() => {
@@ -48,8 +50,8 @@ export default function AdminMedia() {
         api.getStorageStats(),
       ]);
 
-      setFiles(Array.isArray(filesRes) ? filesRes : []);
-      setStorageStats(storageRes || { total: 100, used: 0, free: 100, percentage: 0 });
+      setFiles(filesRes.success && Array.isArray(filesRes.data) ? filesRes.data : []);
+      setStorageStats(storageRes.success && storageRes.data ? storageRes.data : { total: 100, used: 0, free: 100, percentage: 0 });
     } catch (error) {
       console.error('Failed to fetch media data:', error);
       toast({ title: "Error", description: "Failed to load media data" });
@@ -67,16 +69,56 @@ export default function AdminMedia() {
     return matchSearch && matchType;
   });
 
-  const deleteFile = (id: string) => {
-    toast({ title: "Not Implemented", description: "File deletion coming soon" });
+  const deleteFile = async (id: string) => {
+    setConfirm({
+      open: true,
+      title: "Delete File",
+      description: "Are you sure you want to delete this file? This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const res = await api.deleteMediaFile(id);
+          if (res.success) {
+            toast({ title: "Success", description: "File deleted successfully" });
+            fetchMediaData();
+          } else {
+            throw new Error(res.message);
+          }
+        } catch (error) {
+          toast({ title: "Error", description: "Failed to delete file", variant: "destructive" });
+        }
+      }
+    });
   };
 
   const copyUrl = (file: MediaFile) => {
-    toast({ title: "Not Implemented", description: "URL copying coming soon" });
+    if (file.url) {
+      navigator.clipboard.writeText(file.url);
+      toast({ title: "Copied", description: "URL copied to clipboard" });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const res = await api.uploadMediaFile(files[i]);
+        if (!res.success) throw new Error(res.message);
+      }
+      toast({ title: "Success", description: `Uploaded ${files.length} file(s)` });
+      fetchMediaData();
+    } catch (error: any) {
+      toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const uploadFiles = () => {
-    toast({ title: "Not Implemented", description: "File upload coming soon" });
+    fileInputRef.current?.click();
   };
 
   const typeCounts = { image: files.filter((f) => f.type === "image").length, audio: files.filter((f) => f.type === "audio").length, video: files.filter((f) => f.type === "video").length, document: files.filter((f) => f.type === "document").length };
@@ -87,7 +129,20 @@ export default function AdminMedia() {
 
       <div className="flex items-center justify-between">
         <div><h1 className="font-display text-2xl font-bold text-foreground">Media Library</h1><p className="text-sm text-muted-foreground">Upload and manage all platform assets and files.</p></div>
-        <Button className="bg-primary text-primary-foreground text-sm" onClick={uploadFiles}><Upload className="w-3.5 h-3.5 mr-2" /> Upload Files</Button>
+        <div className="flex items-center gap-2">
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} multiple className="hidden" />
+          <Button 
+            className="bg-primary text-primary-foreground text-sm" 
+            onClick={uploadFiles} 
+            disabled={uploading}
+          >
+            {uploading ? (
+              <div className="flex items-center"><div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-current mr-2"></div> Uploading...</div>
+            ) : (
+              <><Upload className="w-3.5 h-3.5 mr-2" /> Upload Files</>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -143,7 +198,27 @@ export default function AdminMedia() {
                     <Dialog key={file.id}>
                       <DialogTrigger asChild>
                         <div className="group bg-secondary/30 rounded-lg border border-border/20 p-3 cursor-pointer hover:border-primary/30 transition-colors">
-                          <div className="aspect-square rounded-md bg-secondary/60 flex items-center justify-center mb-2">{typeIcon[file.type]}</div>
+                          <div className="aspect-square rounded-md bg-secondary/60 flex items-center justify-center mb-2 overflow-hidden">
+                            {file.type === 'image' && file.url ? (
+                              <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                            ) : file.type === 'video' && file.url ? (
+                              <div className="relative w-full h-full">
+                                <video src={file.url} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                  <FileVideo className="w-6 h-6 text-white/70" />
+                                </div>
+                              </div>
+                            ) : file.type === 'audio' && file.url ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/5">
+                                <FileAudio className="w-8 h-8 text-emerald-400 mb-1" />
+                                <div className="w-12 h-1 bg-emerald-500/20 rounded-full overflow-hidden">
+                                  <div className="h-full bg-emerald-500 w-1/3 animate-pulse" />
+                                </div>
+                              </div>
+                            ) : (
+                              typeIcon[file.type]
+                            )}
+                          </div>
                           <div className="text-xs text-foreground font-medium truncate">{file.name}</div>
                           <div className="text-[10px] text-muted-foreground">{file.size}</div>
                         </div>
@@ -151,7 +226,23 @@ export default function AdminMedia() {
                       <DialogContent className="bg-card border-border/40 max-w-sm">
                         <DialogHeader><DialogTitle className="text-foreground text-sm">{file.name}</DialogTitle></DialogHeader>
                         <div className="space-y-3">
-                          <div className="aspect-video bg-secondary/40 rounded-lg flex items-center justify-center">{typeIcon[file.type]}</div>
+                          <div className="aspect-video bg-secondary/40 rounded-lg flex items-center justify-center overflow-hidden border border-border/20">
+                            {file.type === 'image' && file.url ? (
+                              <img src={file.url} alt={file.name} className="w-full h-full object-contain" />
+                            ) : file.type === 'video' && file.url ? (
+                              <video src={file.url} controls className="w-full h-full" />
+                            ) : file.type === 'audio' && file.url ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-emerald-500/5">
+                                <FileAudio className="w-12 h-12 text-emerald-400 mb-4" />
+                                <audio src={file.url} controls className="w-full" />
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                {typeIcon[file.type]}
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{file.type}</span>
+                              </div>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div><span className="text-muted-foreground">Type:</span> <span className="text-foreground capitalize">{file.type}</span></div>
                             <div><span className="text-muted-foreground">Size:</span> <span className="text-foreground">{file.size}</span></div>
@@ -160,7 +251,11 @@ export default function AdminMedia() {
                           </div>
                           <div className="flex gap-2">
                             <Button variant="outline" size="sm" className="flex-1 text-xs border-border/30" onClick={() => copyUrl(file)}><Copy className="w-3 h-3 mr-1.5" /> Copy URL</Button>
-                            <Button variant="outline" size="sm" className="flex-1 text-xs border-border/30" onClick={() => toast({ title: "Download Started" })}><Download className="w-3 h-3 mr-1.5" /> Download</Button>
+                            <Button variant="outline" size="sm" className="flex-1 text-xs border-border/30" asChild>
+                              <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                                <Download className="w-3 h-3 mr-1.5" /> Download
+                              </a>
+                            </Button>
                             <Button variant="outline" size="sm" className="text-xs border-red-500/30 text-red-400" onClick={() => deleteFile(file.id)}><Trash2 className="w-3 h-3" /></Button>
                           </div>
                         </div>

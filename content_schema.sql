@@ -19,8 +19,19 @@ CREATE INDEX IF NOT EXISTS idx_content_sections_enabled ON content_sections(enab
 CREATE INDEX IF NOT EXISTS idx_content_sections_order ON content_sections(order_index);
 
 -- Add unique constraint on name for conflict resolution
-ALTER TABLE content_sections 
-ADD CONSTRAINT IF NOT EXISTS content_sections_name_unique UNIQUE (name);
+-- First, clean up any existing duplicates to avoid errors
+DELETE FROM content_sections 
+WHERE id IN (
+    SELECT id 
+    FROM (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY name ORDER BY updated_at DESC) as row_num 
+        FROM content_sections
+    ) t 
+    WHERE t.row_num > 1
+);
+
+ALTER TABLE content_sections DROP CONSTRAINT IF EXISTS content_sections_name_unique;
+ALTER TABLE content_sections ADD CONSTRAINT content_sections_name_unique UNIQUE (name);
 
 -- Create blog posts table
 CREATE TABLE IF NOT EXISTS blog_posts (
