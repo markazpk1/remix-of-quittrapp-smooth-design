@@ -85,13 +85,13 @@ export default function AdminLessons() {
       const transformedLessons = (lessonsRes.data || []).map((item: any) => ({
         id: item.id,
         title: item.title || 'Untitled',
-        category: item.category || item.content_type || 'unknown',
+        category: (Array.isArray(item.category) ? item.category[0]?.name : item.category?.name) || 'General',
         type: item.content_type || 'article',
         status: item.status || 'published',
         views: item.view_count || 0,
-        duration: item.duration || '0:00',
+        duration: typeof item.duration === 'number' ? `${Math.floor(item.duration / 60)}:${(item.duration % 60).toString().padStart(2, '0')}` : item.duration || '0:00',
         order: item.order_index || 0,
-        fileUrl: item.uploaded_files?.public_url || ''
+        fileUrl: item.audio_url || ''
       }));
 
       // Transform sounds data to match Sound interface

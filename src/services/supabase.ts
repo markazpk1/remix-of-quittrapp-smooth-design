@@ -114,29 +114,46 @@ export const saveLessonToDatabase = async (lessonData: {
   content_type: string;
   content?: string;
   file_id?: string;
-  duration?: string;
+  duration?: string | number;
   status: string;
 }) => {
   try {
+    // 1. Get Category ID
+    const { data: catData } = await supabase
+      .from('library_categories')
+      .select('id')
+      .ilike('name', lessonData.category)
+      .maybeSingle();
+    
+    // 2. Get Media URL if file_id exists
+    let mediaUrl = undefined;
+    if (lessonData.file_id) {
+      const { data: fileData } = await supabase
+        .from('uploaded_files')
+        .select('public_url')
+        .eq('id', lessonData.file_id)
+        .maybeSingle();
+      mediaUrl = fileData?.public_url;
+    }
+
+    // 3. Insert Lesson
     const { data, error } = await supabase
-      .from('lesson_content')
+      .from('library_content')
       .insert({
         title: lessonData.title,
-        category: lessonData.category,
         content_type: lessonData.content_type,
         content: lessonData.content,
-        file_id: lessonData.file_id,
-        duration: lessonData.duration,
-        status: lessonData.status,
-        view_count: 0,
-        order_index: 0
+        audio_url: mediaUrl,
+        category_id: catData?.id,
+        duration: typeof lessonData.duration === 'string' ? 
+          (lessonData.duration.includes(':') ? 
+            (parseInt(lessonData.duration.split(':')[0]) * 60 + parseInt(lessonData.duration.split(':')[1])) : 
+            parseInt(lessonData.duration) || 0) : 
+          lessonData.duration,
+        narrator: 'Admin',
+        status: lessonData.status
       })
-      .select(`
-        *,
-        uploaded_files (
-          public_url
-        )
-      `)
+      .select()
       .single();
 
     if (error) {
@@ -167,12 +184,10 @@ export const saveLessonToDatabase = async (lessonData: {
 export const fetchLessonsFromDatabase = async () => {
   try {
     const { data, error } = await supabase
-      .from('lesson_content')
+      .from('library_content')
       .select(`
         *,
-        uploaded_files (
-          public_url
-        )
+        category:library_categories(name)
       `)
       .order('created_at', { ascending: false });
 
@@ -205,7 +220,7 @@ export const fetchLessonsFromDatabase = async () => {
 export const deleteLessonFromDatabase = async (lessonId: string) => {
   try {
     const { error } = await supabase
-      .from('lesson_content')
+      .from('library_content')
       .delete()
       .eq('id', lessonId);
 
