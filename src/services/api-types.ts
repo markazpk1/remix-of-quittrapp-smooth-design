@@ -102,6 +102,8 @@ export interface ApiMethods {
   updateUser(id: string, data: any): Promise<ApiResponse>;
   getDailyGoals(): Promise<ApiResponse>;
   updateDailyGoals(): Promise<ApiResponse>;
+  completeLesson(lessonId: string): Promise<ApiResponse>;
+  toggleLessonFavorite(lessonId: string): Promise<ApiResponse>;
   getStreaks(): Promise<ApiResponse>;
   updateStreaks(): Promise<ApiResponse>;
   getUserGrowth(): Promise<ApiResponse>;

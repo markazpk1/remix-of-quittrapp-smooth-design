@@ -2229,21 +2229,27 @@ export const api: ApiMethods = {
         .select(`
           id,
           title,
+          content,
           content_type,
+          audio_url,
           duration,
+          narrator,
           category:library_categories(name)
         `);
 
       if (lessonsError) throw lessonsError;
 
-      // 3. Fetch User Progress for these lessons
+      // 3. Fetch User Progress and Favorites for these lessons
       const { data: progress } = await supabase
         .from('user_library_progress')
-        .select('content_id, completed')
+        .select('content_id, completed, is_favorite')
         .eq('user_id', user.id);
 
       const progressMap = (progress || []).reduce((acc: any, curr) => {
-        acc[curr.content_id] = curr.completed;
+        acc[curr.content_id] = {
+          completed: curr.completed,
+          is_favorite: curr.is_favorite
+        };
         return acc;
       }, {});
 
@@ -2251,11 +2257,16 @@ export const api: ApiMethods = {
       const formattedLessons = (lessons || []).map(l => ({
         id: l.id,
         title: l.title,
+        content: l.content || "",
+        media_url: l.audio_url || "",
+        thumbnail_url: "",
         category: (Array.isArray(l.category) ? (l.category[0] as any)?.name : (l.category as any)?.name) || 'General',
         duration: l.duration ? `${Math.floor(l.duration / 60)} min` : '5 min',
-        type: l.content_type === 'audio_book' ? 'audio' : 'article',
-        completed: progressMap[l.id] || false,
-        locked: false // Can add logic for premium/locked content here
+        type: l.content_type === 'audio_book' ? 'audio' : l.content_type === 'video' ? 'video' : 'article',
+        narrator: l.narrator || "",
+        completed: progressMap[l.id]?.completed || false,
+        is_favorite: progressMap[l.id]?.is_favorite || false,
+        locked: false 
       }));
 
       const completedCount = formattedLessons.filter(l => l.completed).length;
@@ -2271,6 +2282,58 @@ export const api: ApiMethods = {
           progress: Math.round(progressPercent)
         }
       };
+    } catch (error) {
+      return handleSupabaseError(error);
+    }
+  },
+
+  completeLesson: async (lessonId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('user_library_progress')
+        .upsert([{
+          user_id: user.id,
+          content_id: lessonId,
+          completed: true,
+          completed_at: new Date().toISOString()
+        }], { onConflict: 'user_id,content_id' });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      return handleSupabaseError(error);
+    }
+  },
+
+  toggleLessonFavorite: async (lessonId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // 1. Get current status
+      const { data: current } = await supabase
+        .from('user_library_progress')
+        .select('is_favorite')
+        .eq('user_id', user.id)
+        .eq('content_id', lessonId)
+        .maybeSingle();
+
+      const newStatus = !current?.is_favorite;
+
+      // 2. Update status
+      const { error } = await supabase
+        .from('user_library_progress')
+        .upsert([{
+          user_id: user.id,
+          content_id: lessonId,
+          is_favorite: newStatus
+        }], { onConflict: 'user_id,content_id' });
+
+      if (error) throw error;
+      return { success: true };
     } catch (error) {
       return handleSupabaseError(error);
     }
