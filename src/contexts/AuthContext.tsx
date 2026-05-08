@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/services/supabase';
 import { toast } from 'sonner';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface User {
   id: string;
@@ -36,6 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Check for active session
@@ -56,14 +59,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       setSession(currentSession as any);
       setUser(currentSession?.user as any);
       setLoading(false);
+
+      if (event === 'SIGNED_IN' && currentSession) {
+        // If we're on the login page, register page, or root, go to dashboard
+        const authPaths = ['/login', '/register', '/'];
+        if (authPaths.includes(location.pathname)) {
+          navigate('/dashboard');
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate, location.pathname]);
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
