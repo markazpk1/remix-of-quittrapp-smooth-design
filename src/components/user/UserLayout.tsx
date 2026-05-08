@@ -4,7 +4,13 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/user/NotificationBell";
 import { Outlet } from "react-router-dom";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function UserLayout() {
+  const { user } = useAuth();
+  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -19,8 +25,8 @@ export default function UserLayout() {
               <NotificationBell />
               <ThemeToggle />
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">JD</div>
-                <span className="text-sm text-foreground hidden md:inline">John Doe</span>
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">{initials}</div>
+                <span className="text-sm text-foreground hidden md:inline">{fullName}</span>
               </div>
             </div>
           </header>

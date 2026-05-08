@@ -11,7 +11,10 @@ import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function UserSettings() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [settingsData, setSettingsData] = useState<any>(null);
   const [notifications, setNotifications] = useState({
@@ -34,27 +37,24 @@ export default function UserSettings() {
 
   useEffect(() => {
     fetchSettingsData();
-  }, []);
+  }, [user]);
 
   const fetchSettingsData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('userToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+      if (!user) return;
       
-      const response = await api.getUserSettings(token);
+      const response = await api.getUserSettings();
       if (response.error) {
         toast.error('Failed to load settings');
         return;
       }
       
-      setSettingsData(response);
-      setNotifications(response.notifications || {});
-      setPrivacy(response.privacy || {});
-      setPreferences(response.preferences || {});
+      const data = response.data || {};
+      setSettingsData(data);
+      if (data.notifications) setNotifications(data.notifications);
+      if (data.privacy) setPrivacy(data.privacy);
+      if (data.preferences) setPreferences(data.preferences);
     } catch (error) {
       console.error('Settings data error:', error);
       toast.error('Failed to load settings');
@@ -65,10 +65,9 @@ export default function UserSettings() {
 
   const saveSettings = async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      if (!token) return;
+      if (!user) return;
       
-      const response = await api.updateUserSettings(token, {
+      const response = await api.updateUserSettings({
         notifications,
         privacy,
         preferences,

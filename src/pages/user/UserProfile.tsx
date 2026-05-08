@@ -10,31 +10,45 @@ import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function UserProfile() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchProfileData();
-  }, []);
+  }, [user]);
 
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('userToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+      if (!user) return;
       
-      const response = await api.getUserProfile(token);
+      const response = await api.getUserProfile();
       if (response.error) {
         toast.error('Failed to load profile data');
         return;
       }
       
-      setProfileData(response);
+      const data = response.data || {};
+      setProfileData({
+        profile: data.profile || {
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+          email: user.email,
+          city: user.user_metadata?.city || "Not specified",
+          madhab: user.user_metadata?.madhab || "Not specified",
+          joinDate: "May 2024",
+          avatar: user.user_metadata?.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) || "JD"
+        },
+        stats: data.stats || {
+          daysClean: 14,
+          achievements: 5,
+          bestStreak: 14
+        }
+      });
     } catch (error) {
       console.error('Profile data error:', error);
       toast.error('Failed to load profile data');
@@ -67,19 +81,19 @@ export default function UserProfile() {
           <div className="flex items-center gap-5">
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-2xl font-bold text-primary">
-                JD
+                {profile.avatar}
               </div>
               <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center">
                 <Camera className="w-3.5 h-3.5 text-primary-foreground" />
               </button>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">John Doe</h2>
-              <p className="text-sm text-muted-foreground">john.doe@email.com</p>
+              <h2 className="text-lg font-bold text-foreground">{profile.full_name}</h2>
+              <p className="text-sm text-muted-foreground">{profile.email}</p>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-[10px] bg-primary/20 text-primary border-primary/30">Pro Member</Badge>
                 <Badge variant="outline" className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">
-                  <Flame className="w-3 h-3 mr-1" /> 14 Day Streak
+                  <Flame className="w-3 h-3 mr-1" /> {stats.daysClean} Day Streak
                 </Badge>
               </div>
             </div>
@@ -89,17 +103,17 @@ export default function UserProfile() {
           <div className="grid grid-cols-3 gap-3 mt-6">
             <div className="text-center p-3 bg-secondary/30 rounded-lg">
               <Calendar className="w-4 h-4 text-primary mx-auto mb-1" />
-              <div className="text-lg font-bold text-foreground">14</div>
+              <div className="text-lg font-bold text-foreground">{stats.daysClean}</div>
               <div className="text-[10px] text-muted-foreground">Days Clean</div>
             </div>
             <div className="text-center p-3 bg-secondary/30 rounded-lg">
               <Trophy className="w-4 h-4 text-yellow-400 mx-auto mb-1" />
-              <div className="text-lg font-bold text-foreground">5</div>
+              <div className="text-lg font-bold text-foreground">{stats.achievements}</div>
               <div className="text-[10px] text-muted-foreground">Achievements</div>
             </div>
             <div className="text-center p-3 bg-secondary/30 rounded-lg">
               <Flame className="w-4 h-4 text-orange-400 mx-auto mb-1" />
-              <div className="text-lg font-bold text-foreground">14</div>
+              <div className="text-lg font-bold text-foreground">{stats.bestStreak}</div>
               <div className="text-[10px] text-muted-foreground">Best Streak</div>
             </div>
           </div>
@@ -114,21 +128,21 @@ export default function UserProfile() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-sm text-foreground">First Name</Label>
-              <Input defaultValue="John" className="bg-secondary/40 border-border/30" />
+              <Label className="text-sm text-foreground">Full Name</Label>
+              <Input defaultValue={profile.full_name} className="bg-secondary/40 border-border/30" />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm text-foreground">Last Name</Label>
-              <Input defaultValue="Doe" className="bg-secondary/40 border-border/30" />
+              <Label className="text-sm text-foreground">City</Label>
+              <Input defaultValue={profile.city} className="bg-secondary/40 border-border/30" />
             </div>
           </div>
           <div className="space-y-2">
             <Label className="text-sm text-foreground">Email</Label>
-            <Input defaultValue="john.doe@email.com" className="bg-secondary/40 border-border/30" />
+            <Input defaultValue={profile.email} className="bg-secondary/40 border-border/30" disabled />
           </div>
           <div className="space-y-2">
-            <Label className="text-sm text-foreground">Bio</Label>
-            <Textarea defaultValue="On a journey to become the best version of myself." className="bg-secondary/40 border-border/30 resize-none" rows={3} />
+            <Label className="text-sm text-foreground">Madhab</Label>
+            <Input defaultValue={profile.madhab} className="bg-secondary/40 border-border/30" />
           </div>
           <div className="flex justify-end">
             <Button className="bg-primary text-primary-foreground text-sm">Save Changes</Button>

@@ -106,7 +106,10 @@ const postTypeOptions: { value: PostCategory; label: string }[] = [
   { value: "encouragement", label: "💪 Encouragement" },
 ];
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function UserCommunity() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [communityData, setCommunityData] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -118,24 +121,23 @@ export default function UserCommunity() {
 
   useEffect(() => {
     fetchCommunityData();
-  }, []);
+  }, [user]);
 
   const fetchCommunityData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('userToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+      if (!user) return;
       
-      const response = await api.getUserCommunity(token);
+      const response = await api.getUserCommunity();
       if (response.error) {
         toast.error('Failed to load community posts');
         return;
       }
       
-      setCommunityData(response);
+      const data = response.data || {};
+      setCommunityData({
+        threads: data.threads || []
+      });
     } catch (error) {
       console.error('Community data error:', error);
       toast.error('Failed to load community posts');

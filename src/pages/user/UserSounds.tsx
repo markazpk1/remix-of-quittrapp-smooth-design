@@ -8,7 +8,10 @@ import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function UserSounds() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [soundsData, setSoundsData] = useState<any>(null);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -18,24 +21,29 @@ export default function UserSounds() {
 
   useEffect(() => {
     fetchSoundsData();
-  }, []);
+  }, [user]);
 
   const fetchSoundsData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('userToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+      if (!user) return;
       
-      const response = await api.getUserSounds(token);
+      const response = await api.getUserSounds();
       if (response.error) {
         toast.error('Failed to load sounds');
         return;
       }
       
-      setSoundsData(response);
+      const data = response.data || {};
+      setSoundsData({
+        categories: data.categories || ["All", "Nature", "Focus", "Quran", "Stories"],
+        sounds: data.sounds || [
+          { id: 1, title: "Gentle Rain", category: "Nature", duration: "30:00", icon: CloudRain, color: "bg-blue-500/20 text-blue-400", favorite: true },
+          { id: 2, title: "Morning Birds", category: "Nature", duration: "25:00", icon: TreePine, color: "bg-green-500/20 text-green-400", favorite: false },
+          { id: 3, title: "Deep Focus", category: "Focus", duration: "60:00", icon: Music, color: "bg-purple-500/20 text-purple-400", favorite: true },
+          { id: 4, title: "Soft Wind", category: "Nature", duration: "20:00", icon: Wind, color: "bg-teal-500/20 text-teal-400", favorite: false },
+        ]
+      });
     } catch (error) {
       console.error('Sounds data error:', error);
       toast.error('Failed to load sounds');

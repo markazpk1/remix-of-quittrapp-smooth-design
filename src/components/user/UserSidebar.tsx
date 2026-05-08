@@ -37,11 +37,26 @@ const items = [
   { title: "Settings", url: "/app/settings", icon: Settings },
 ];
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export function UserSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
+  const { user, signOut } = useAuth();
+
+  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/40">
@@ -87,12 +102,12 @@ export function UserSidebar() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 w-full rounded-lg px-2 py-2 hover:bg-muted/50 transition-colors">
                   <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                    JD
+                    {initials}
                   </div>
                   {!collapsed && (
                     <div className="text-left flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">John Doe</div>
-                      <div className="text-[11px] text-muted-foreground truncate">john@example.com</div>
+                      <div className="text-sm font-medium text-foreground truncate">{fullName}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{user?.email}</div>
                     </div>
                   )}
                 </button>
@@ -100,8 +115,8 @@ export function UserSidebar() {
               <DropdownMenuContent align="end" side="top" className="w-48">
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">John Doe</span>
-                    <span className="text-xs text-muted-foreground">john@example.com</span>
+                    <span className="text-sm font-medium">{fullName}</span>
+                    <span className="text-xs text-muted-foreground">{user?.email}</span>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -110,7 +125,7 @@ export function UserSidebar() {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/login")} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>

@@ -9,7 +9,10 @@ import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export default function UserLessons() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [lessonsData, setLessonsData] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -18,24 +21,31 @@ export default function UserLessons() {
 
   useEffect(() => {
     fetchLessonsData();
-  }, []);
+  }, [user]);
 
   const fetchLessonsData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('userToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+      if (!user) return;
       
-      const response = await api.getUserLessons(token);
+      const response = await api.getUserLessons();
       if (response.error) {
         toast.error('Failed to load lessons');
         return;
       }
       
-      setLessonsData(response);
+      const data = response.data || {};
+      setLessonsData({
+        categories: data.categories || ["All", "Basics", "Advanced", "Mindset", "Islamic"],
+        lessons: data.lessons || [
+          { id: "1", title: "Getting Started with MominCore", category: "Basics", duration: "5 min", type: "video", completed: true, locked: false },
+          { id: "2", title: "Understanding Your Triggers", category: "Mindset", duration: "12 min", type: "article", completed: false, locked: false },
+          { id: "3", title: "The Concept of Tawbah", category: "Islamic", duration: "15 min", type: "audio", completed: false, locked: false },
+          { id: "4", title: "Advanced Habit Reframing", category: "Advanced", duration: "20 min", type: "video", completed: false, locked: true },
+        ],
+        completed: data.completed || 1,
+        progress: data.progress || 25
+      });
     } catch (error) {
       console.error('Lessons data error:', error);
       toast.error('Failed to load lessons');
