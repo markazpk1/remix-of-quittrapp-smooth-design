@@ -118,12 +118,25 @@ export const saveLessonToDatabase = async (lessonData: {
   status: string;
 }) => {
   try {
-    // 1. Get Category ID
+    // 1. Get or Create Category ID
+    let catId = null;
     const { data: catData } = await supabase
       .from('library_categories')
       .select('id')
       .ilike('name', lessonData.category)
       .maybeSingle();
+    
+    if (catData) {
+      catId = catData.id;
+    } else {
+      // Create new category if it doesn't exist
+      const { data: newCat, error: catError } = await supabase
+        .from('library_categories')
+        .insert({ name: lessonData.category, sort_order: 100 })
+        .select()
+        .single();
+      if (!catError) catId = newCat.id;
+    }
     
     // 2. Get Media URL if file_id exists
     let mediaUrl = undefined;
@@ -144,14 +157,14 @@ export const saveLessonToDatabase = async (lessonData: {
         content_type: lessonData.content_type,
         content: lessonData.content,
         audio_url: mediaUrl,
-        category_id: catData?.id,
+        category_id: catId,
         duration: typeof lessonData.duration === 'string' ? 
           (lessonData.duration.includes(':') ? 
             (parseInt(lessonData.duration.split(':')[0]) * 60 + parseInt(lessonData.duration.split(':')[1])) : 
             parseInt(lessonData.duration) || 0) : 
           lessonData.duration,
         narrator: 'Admin',
-        status: lessonData.status
+        status: 'published' // Ensure it's published to show up for users
       })
       .select()
       .single();
@@ -2269,20 +2282,27 @@ export const api: ApiMethods = {
       }, {});
 
       // Format lessons for the UI
-      const formattedLessons = (lessons || []).map(l => ({
-        id: l.id,
-        title: l.title,
-        content: l.content || "",
-        media_url: l.audio_url || "",
-        thumbnail_url: "",
-        category: (Array.isArray(l.category) ? (l.category[0] as any)?.name : (l.category as any)?.name) || 'General',
-        duration: l.duration ? `${Math.floor(l.duration / 60)} min` : '5 min',
-        type: l.content_type === 'audio_book' ? 'audio' : l.content_type === 'video' ? 'video' : 'article',
-        narrator: l.narrator || "",
-        completed: progressMap[l.id]?.completed || false,
-        is_favorite: progressMap[l.id]?.is_favorite || false,
-        locked: false 
-      }));
+      const formattedLessons = (lessons || []).map(l => {
+        let catName = 'General';
+        if (l.category) {
+          catName = Array.isArray(l.category) ? (l.category[0] as any)?.name : (l.category as any)?.name;
+        }
+        
+        return {
+          id: l.id,
+          title: l.title,
+          content: l.content || "",
+          media_url: l.audio_url || "",
+          thumbnail_url: "",
+          category: catName || 'General',
+          duration: l.duration ? (l.duration >= 60 ? `${Math.floor(l.duration / 60)} min` : `${l.duration} sec`) : '5 min',
+          type: l.content_type === 'audio_book' ? 'audio' : l.content_type === 'video' ? 'video' : 'article',
+          narrator: l.narrator || "",
+          completed: progressMap[l.id]?.completed || false,
+          is_favorite: progressMap[l.id]?.is_favorite || false,
+          locked: false 
+        };
+      });
 
       const completedCount = formattedLessons.filter(l => l.completed).length;
       const totalCount = formattedLessons.length;
