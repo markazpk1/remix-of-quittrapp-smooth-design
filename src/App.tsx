@@ -47,68 +47,68 @@ import AdminLogin from "./pages/admin/AdminLogin";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <ThemeProvider defaultTheme="dark" storageKey="quittr-theme">
-    <NotificationProvider>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={
-              <AdminProtectedRoute>
-                <AdminLayout />
-              </AdminProtectedRoute>
-            }>
-              <Route index element={<AdminDashboard />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="services" element={<AdminServices />} />
-              <Route path="lessons" element={<AdminLessons />} />
-              <Route path="community" element={<AdminCommunity />} />
-              <Route path="subscriptions" element={<AdminSubscriptions />} />
-              <Route path="notifications" element={<AdminNotifications />} />
-              <Route path="content" element={<AdminContent />} />
-              <Route path="media" element={<AdminMedia />} />
-              <Route path="reports" element={<AdminReports />} />
-              <Route path="audit-logs" element={<AdminAuditLogs />} />
-              <Route path="support" element={<AdminSupportTickets />} />
-              <Route path="roles" element={<AdminRoles />} />
-              <Route path="affiliates" element={<AdminAffiliates />} />
-              <Route path="settings" element={<AdminSettings />} />
-            </Route>
-            <Route path="/app" element={
-              <ProtectedRoute>
-                <UserLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<UserDashboard />} />
-              <Route path="progress" element={<UserProgress />} />
-              <Route path="lessons" element={<UserLessons />} />
-              <Route path="sounds" element={<UserSounds />} />
-              <Route path="voice-therapy" element={<UserVoiceTherapy />} />
-              <Route path="journal" element={<UserJournal />} />
-              <Route path="ai-companion" element={<UserAICompanion />} />
-              <Route path="panic" element={<UserPanic />} />
-              <Route path="community" element={<UserCommunity />} />
-              <Route path="subscription" element={<UserSubscription />} />
-              <Route path="profile" element={<UserProfile />} />
-              <Route path="settings" element={<UserSettings />} />
-            </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-    </AuthProvider>
-    </NotificationProvider>
-  </ThemeProvider>
+  <BrowserRouter>
+    <ThemeProvider defaultTheme="dark" storageKey="quittr-theme">
+      <NotificationProvider>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin" element={
+                  <AdminProtectedRoute>
+                    <AdminLayout />
+                  </AdminProtectedRoute>
+                }>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="services" element={<AdminServices />} />
+                  <Route path="lessons" element={<AdminLessons />} />
+                  <Route path="community" element={<AdminCommunity />} />
+                  <Route path="subscriptions" element={<AdminSubscriptions />} />
+                  <Route path="notifications" element={<AdminNotifications />} />
+                  <Route path="content" element={<AdminContent />} />
+                  <Route path="media" element={<AdminMedia />} />
+                  <Route path="reports" element={<AdminReports />} />
+                  <Route path="audit-logs" element={<AdminAuditLogs />} />
+                  <Route path="support" element={<AdminSupportTickets />} />
+                  <Route path="roles" element={<AdminRoles />} />
+                  <Route path="affiliates" element={<AdminAffiliates />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                </Route>
+                <Route path="/app" element={
+                  <ProtectedRoute>
+                    <UserLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<UserDashboard />} />
+                  <Route path="progress" element={<UserProgress />} />
+                  <Route path="lessons" element={<UserLessons />} />
+                  <Route path="sounds" element={<UserSounds />} />
+                  <Route path="voice-therapy" element={<UserVoiceTherapy />} />
+                  <Route path="journal" element={<UserJournal />} />
+                  <Route path="ai-companion" element={<UserAICompanion />} />
+                  <Route path="panic" element={<UserPanic />} />
+                  <Route path="community" element={<UserCommunity />} />
+                  <Route path="subscription" element={<UserSubscription />} />
+                  <Route path="profile" element={<UserProfile />} />
+                  <Route path="settings" element={<UserSettings />} />
+                </Route>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TooltipProvider>
+          </QueryClientProvider>
+        </AuthProvider>
+      </NotificationProvider>
+    </ThemeProvider>
+  </BrowserRouter>
 );
 
 export default App;
