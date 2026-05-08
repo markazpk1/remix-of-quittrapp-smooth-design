@@ -6,6 +6,7 @@ import { Crown, Star, CheckCircle, ArrowRight, CreditCard, Shield, Zap, Check } 
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const plans = [
   {
@@ -47,6 +48,43 @@ const invoices = [
 ];
 
 export default function UserSubscription() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [subData, setSubData] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchSubData();
+  }, [user]);
+
+  const fetchSubData = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getUserSubscription();
+      if (response.success) {
+        setSubData(response.data);
+      }
+    } catch (error) {
+      console.error("Subscription error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+
+  const currentPlan = subData?.currentPlan || 'Free';
+  const displayPlans = plans.map(p => ({
+    ...p,
+    current: p.name === currentPlan
+  }));
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
@@ -59,20 +97,22 @@ export default function UserSubscription() {
         <CardContent className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-primary" />
+              {currentPlan === 'Free' ? <Star className="w-5 h-5 text-primary" /> : <Zap className="w-5 h-5 text-primary" />}
             </div>
             <div>
-              <div className="text-sm font-medium text-foreground">You're on the <strong>Pro</strong> plan</div>
-              <div className="text-xs text-muted-foreground">Next billing: March 1, 2026 · $9.99/month</div>
+              <div className="text-sm font-medium text-foreground">You're on the <strong>{currentPlan}</strong> plan</div>
+              <div className="text-xs text-muted-foreground">Next billing: {subData?.nextBilling || 'N/A'} · {subData?.amount}</div>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="border-border/30 text-xs text-muted-foreground">Cancel Plan</Button>
+          {currentPlan !== 'Free' && (
+            <Button variant="outline" size="sm" className="border-border/30 text-xs text-muted-foreground">Cancel Plan</Button>
+          )}
         </CardContent>
       </Card>
 
       {/* Plans */}
       <div className="grid md:grid-cols-3 gap-4">
-        {plans.map((plan) => (
+        {displayPlans.map((plan) => (
           <Card key={plan.name} className={`bg-card/60 ${plan.color} relative`}>
             {plan.current && (
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
@@ -119,7 +159,7 @@ export default function UserSubscription() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {invoices.map((inv, i) => (
+            {(subData?.invoices || invoices).map((inv: any, i: number) => (
               <div key={i} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
                 <span className="text-sm text-foreground">{inv.date}</span>
                 <span className="text-sm text-foreground font-medium">{inv.amount}</span>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,8 @@ import { format, subDays } from "date-fns";
 import { toast } from "sonner";
 import { z } from "zod";
 import JournalStreakBadges from "@/components/user/JournalStreakBadges";
+import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 // --- Types & Validation ---
 
@@ -167,7 +169,9 @@ function seedIfEmpty(): JournalEntry[] {
 // --- Component ---
 
 export default function UserJournal() {
-  const [entries, setEntries] = useState<JournalEntry[]>(() => seedIfEmpty());
+  const { user } = useAuth();
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterMood, setFilterMood] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -179,6 +183,25 @@ export default function UserJournal() {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [promptIndex, setPromptIndex] = useState(0);
   const daysClean = 14;
+
+  useEffect(() => {
+    fetchEntries();
+  }, [user]);
+
+  const fetchEntries = async () => {
+    try {
+      setLoading(true);
+      if (!user) return;
+      const response = await api.getUserJournal();
+      if (response.success) {
+        setEntries(response.data || []);
+      }
+    } catch (error) {
+      console.error("Journal fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const currentPrompts = useMemo(() => getPrompts(editorMood, daysClean), [editorMood, daysClean]);
   const activePrompt = currentPrompts[promptIndex % currentPrompts.length] || "";
@@ -213,45 +236,60 @@ export default function UserJournal() {
     setSelectedEntry(null);
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const result = journalEntrySchema.safeParse({ content: editorContent });
     if (!result.success) {
       setEditorError(result.error.errors[0].message);
       return;
     }
 
-    const now = new Date();
-    if (editingEntry) {
-      const updated = entries.map((e) =>
-        e.id === editingEntry.id ? { ...e, mood: editorMood, content: result.data.content } : e
-      );
-      setEntries(updated);
-      saveEntries(updated);
-      toast.success("Entry updated");
-    } else {
-      const newEntry: JournalEntry = {
-        id: crypto.randomUUID(),
-        date: format(now, "yyyy-MM-dd"),
-        mood: editorMood,
-        content: result.data.content,
-        createdAt: now.toISOString(),
-      };
-      const updated = [newEntry, ...entries];
-      setEntries(updated);
-      saveEntries(updated);
-      toast.success("Journal entry saved ✍️");
+    try {
+      if (editingEntry) {
+        const response = await api.updateJournalEntry(editingEntry.id, {
+          mood: editorMood,
+          content: result.data.content
+        });
+        if (response.success) {
+          toast.success("Entry updated");
+          fetchEntries();
+        }
+      } else {
+        const response = await api.createJournalEntry({
+          mood: editorMood,
+          content: result.data.content
+        });
+        if (response.success) {
+          toast.success("Journal entry saved ✍️");
+          fetchEntries();
+        }
+      }
+      setShowEditor(false);
+    } catch (error) {
+      toast.error("Failed to save entry");
     }
-    setShowEditor(false);
   }, [editorContent, editorMood, editingEntry, entries]);
 
-  const handleDelete = useCallback((id: string) => {
-    const updated = entries.filter((e) => e.id !== id);
-    setEntries(updated);
-    saveEntries(updated);
-    setShowDeleteConfirm(null);
-    setSelectedEntry(null);
-    toast.success("Entry deleted");
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      const response = await api.deleteJournalEntry(id);
+      if (response.success) {
+        toast.success("Entry deleted");
+        fetchEntries();
+        setShowDeleteConfirm(null);
+        setSelectedEntry(null);
+      }
+    } catch (error) {
+      toast.error("Failed to delete entry");
+    }
   }, [entries]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

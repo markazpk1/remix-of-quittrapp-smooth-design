@@ -35,17 +35,7 @@ export default function UserLessons() {
       }
       
       const data = response.data || {};
-      setLessonsData({
-        categories: data.categories || ["All", "Basics", "Advanced", "Mindset", "Islamic"],
-        lessons: data.lessons || [
-          { id: "1", title: "Getting Started with MominCore", category: "Basics", duration: "5 min", type: "video", completed: true, locked: false },
-          { id: "2", title: "Understanding Your Triggers", category: "Mindset", duration: "12 min", type: "article", completed: false, locked: false },
-          { id: "3", title: "The Concept of Tawbah", category: "Islamic", duration: "15 min", type: "audio", completed: false, locked: false },
-          { id: "4", title: "Advanced Habit Reframing", category: "Advanced", duration: "20 min", type: "video", completed: false, locked: true },
-        ],
-        completed: data.completed || 1,
-        progress: data.progress || 25
-      });
+      setLessonsData(response.data);
     } catch (error) {
       console.error('Lessons data error:', error);
       toast.error('Failed to load lessons');

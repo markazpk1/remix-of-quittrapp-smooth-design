@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Send, User, Sparkles } from "lucide-react";
-
-const initialMessages = [
-  { role: "ai", text: "Hi John! 👋 I'm your AI companion. I'm here to support you through your recovery journey. How are you feeling right now?" },
-];
+import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const quickPrompts = [
   "I'm having a craving right now",
@@ -18,21 +17,56 @@ const quickPrompts = [
 ];
 
 export default function UserAICompanion() {
-  const [messages, setMessages] = useState(initialMessages);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
+  useEffect(() => {
+    fetchHistory();
+  }, [user]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getAIChatHistory();
+      if (response.success) {
+        const history = response.data || [];
+        if (history.length === 0) {
+          setMessages([{ role: "ai", text: `Hi ${user?.user_metadata?.full_name || 'there'}! 👋 I'm your AI companion. I'm here to support you through your recovery journey. How are you feeling right now?` }]);
+        } else {
+          setMessages(history);
+        }
+      }
+    } catch (error) {
+      console.error("AI History error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
     if (!input.trim()) return;
     const userMsg = { role: "user", text: input };
     setMessages((prev) => [...prev, userMsg]);
+    const tempInput = input;
     setInput("");
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages((prev) => [...prev, {
-        role: "ai",
-        text: "Thank you for sharing that with me. Remember, every moment of awareness is a step forward in your journey. Would you like to try a quick grounding exercise, or would you prefer to talk more about what you're experiencing?"
-      }]);
-    }, 1000);
+
+    try {
+      const response = await api.sendAIChatMessage(tempInput);
+      if (response.success) {
+        setMessages((prev) => [...prev, response.data]);
+      }
+    } catch (error) {
+      toast.error("Failed to send message");
+    }
   };
 
   const handleQuickPrompt = (prompt: string) => {
@@ -50,8 +84,12 @@ export default function UserAICompanion() {
 
       {/* Chat area */}
       <Card className="bg-card/60 border-border/40 flex-1 flex flex-col overflow-hidden">
-        <CardContent className="p-4 flex-1 overflow-y-auto space-y-4">
-          {messages.map((msg, i) => (
+        <CardContent ref={scrollRef} className="p-4 flex-1 overflow-y-auto space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : messages.map((msg, i) => (
             <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
               {msg.role === "ai" && (
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">

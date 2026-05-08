@@ -35,15 +35,7 @@ export default function UserSounds() {
       }
       
       const data = response.data || {};
-      setSoundsData({
-        categories: data.categories || ["All", "Nature", "Focus", "Quran", "Stories"],
-        sounds: data.sounds || [
-          { id: 1, title: "Gentle Rain", category: "Nature", duration: "30:00", icon: CloudRain, color: "bg-blue-500/20 text-blue-400", favorite: true },
-          { id: 2, title: "Morning Birds", category: "Nature", duration: "25:00", icon: TreePine, color: "bg-green-500/20 text-green-400", favorite: false },
-          { id: 3, title: "Deep Focus", category: "Focus", duration: "60:00", icon: Music, color: "bg-purple-500/20 text-purple-400", favorite: true },
-          { id: 4, title: "Soft Wind", category: "Nature", duration: "20:00", icon: Wind, color: "bg-teal-500/20 text-teal-400", favorite: false },
-        ]
-      });
+      setSoundsData(response.data);
     } catch (error) {
       console.error('Sounds data error:', error);
       toast.error('Failed to load sounds');
@@ -90,8 +82,8 @@ export default function UserSounds() {
         <Card className="bg-gradient-to-r from-primary/10 to-card/60 border-primary/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sounds.find((s) => s.id === playing)?.color}`}>
-                {(() => { const Icon = sounds.find((s) => s.id === playing)?.icon || Music; return <Icon className="w-6 h-6" />; })()}
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sounds.find((s: any) => s.id === playing)?.color}`}>
+                {(() => { const Icon = getIcon(sounds.find((s: any) => s.id === playing)?.category || ''); return <Icon className="w-6 h-6" />; })()}
               </div>
               <div className="flex-1">
                 <div className="text-sm font-medium text-foreground">{sounds.find((s) => s.id === playing)?.title}</div>
@@ -126,7 +118,7 @@ export default function UserSounds() {
           <Card key={sound.id} className={`bg-card/60 border-border/40 transition-all cursor-pointer hover:border-primary/30 ${playing === sound.id ? "ring-1 ring-primary/40" : ""}`}>
             <CardContent className="p-4 text-center">
               <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3 ${sound.color}`}>
-                <sound.icon className="w-7 h-7" />
+                {(() => { const Icon = getIcon(sound.category); return <Icon className="w-7 h-7" />; })()}
               </div>
               <h3 className="text-sm font-medium text-foreground mb-1">{sound.title}</h3>
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-3">

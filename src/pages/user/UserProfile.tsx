@@ -57,6 +57,26 @@ export default function UserProfile() {
     }
   };
 
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const updates = {
+      full_name: formData.get("full_name") as string,
+      city: formData.get("city") as string,
+      madhab: formData.get("madhab") as string,
+    };
+
+    try {
+      const response = await api.updateUserProfile(updates);
+      if (response.success) {
+        toast.success("Profile updated successfully ✨");
+        fetchProfileData();
+      }
+    } catch (error) {
+      toast.error("Failed to update profile");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -91,7 +111,7 @@ export default function UserProfile() {
               <h2 className="text-lg font-bold text-foreground">{profile.full_name}</h2>
               <p className="text-sm text-muted-foreground">{profile.email}</p>
               <div className="flex items-center gap-2 mt-2">
-                <Badge variant="outline" className="text-[10px] bg-primary/20 text-primary border-primary/30">Pro Member</Badge>
+                <Badge variant="outline" className="text-[10px] bg-primary/20 text-primary border-primary/30">{profile.plan} Member</Badge>
                 <Badge variant="outline" className="text-[10px] bg-orange-500/20 text-orange-400 border-orange-500/30">
                   <Flame className="w-3 h-3 mr-1" /> {stats.daysClean} Day Streak
                 </Badge>
@@ -125,28 +145,30 @@ export default function UserProfile() {
         <CardHeader>
           <CardTitle className="text-sm font-medium text-foreground">Personal Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm text-foreground">Full Name</Label>
-              <Input defaultValue={profile.full_name} className="bg-secondary/40 border-border/30" />
+        <CardContent>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm text-foreground">Full Name</Label>
+                <Input name="full_name" defaultValue={profile.full_name} className="bg-secondary/40 border-border/30" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-foreground">City</Label>
+                <Input name="city" defaultValue={profile.city} className="bg-secondary/40 border-border/30" />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm text-foreground">City</Label>
-              <Input defaultValue={profile.city} className="bg-secondary/40 border-border/30" />
+              <Label className="text-sm text-foreground">Email</Label>
+              <Input defaultValue={profile.email} className="bg-secondary/40 border-border/30" disabled />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Email</Label>
-            <Input defaultValue={profile.email} className="bg-secondary/40 border-border/30" disabled />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm text-foreground">Madhab</Label>
-            <Input defaultValue={profile.madhab} className="bg-secondary/40 border-border/30" />
-          </div>
-          <div className="flex justify-end">
-            <Button className="bg-primary text-primary-foreground text-sm">Save Changes</Button>
-          </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-foreground">Madhab</Label>
+              <Input name="madhab" defaultValue={profile.madhab} className="bg-secondary/40 border-border/30" />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" className="bg-primary text-primary-foreground text-sm">Save Changes</Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>

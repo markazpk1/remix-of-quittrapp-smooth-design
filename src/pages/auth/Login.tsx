@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Phone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { SocialAuth } from "@/components/auth/SocialAuth";
 
 export default function Login() {
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
@@ -210,6 +211,10 @@ export default function Login() {
               {isLoading ? "Signing in..." : "Sign In"} <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </form>
+
+          <div className="mt-6">
+            <SocialAuth />
+          </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Don't have an account?{" "}

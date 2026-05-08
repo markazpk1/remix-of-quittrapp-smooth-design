@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Heart, Phone, BookOpen, Music, Brain, Shield, ArrowLeft } from "lucide-react";
+import { api } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const steps = [
+  // ... (steps remain same)
   { title: "Breathe", desc: "Take 5 deep breaths. Inhale for 4 seconds, hold for 4, exhale for 4.", icon: Shield, color: "bg-blue-500/20 text-blue-400" },
   { title: "Ground Yourself", desc: "Name 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, 1 you can taste.", icon: Heart, color: "bg-green-500/20 text-green-400" },
   { title: "Call Someone", desc: "Reach out to your accountability partner or a trusted friend right now.", icon: Phone, color: "bg-yellow-500/20 text-yellow-400" },
@@ -22,8 +25,35 @@ const affirmations = [
 ];
 
 export default function UserPanic() {
+  const { user } = useAuth();
   const [activated, setActivated] = useState(false);
+  const [panicCount, setPanicCount] = useState(0);
   const [affirmation] = useState(affirmations[Math.floor(Math.random() * affirmations.length)]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [user]);
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.getPanicStats();
+      if (response.success) {
+        setPanicCount(response.data.count);
+      }
+    } catch (error) {
+      console.error("Panic stats error:", error);
+    }
+  };
+
+  const handleActivate = async () => {
+    setActivated(true);
+    try {
+      await api.logPanicEvent();
+      fetchStats(); // Update count
+    } catch (error) {
+      console.error("Panic log error:", error);
+    }
+  };
 
   if (!activated) {
     return (
@@ -31,7 +61,7 @@ export default function UserPanic() {
         <h1 className="font-display text-2xl font-bold text-foreground">Panic Button</h1>
         <p className="text-sm text-muted-foreground">Feeling triggered or experiencing a strong urge? Press the button below for immediate support.</p>
         <Button
-          onClick={() => setActivated(true)}
+          onClick={handleActivate}
           className="w-40 h-40 rounded-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-lg font-bold shadow-lg shadow-red-500/30 transition-all hover:scale-105 active:scale-95"
         >
           <div className="flex flex-col items-center gap-2">
@@ -39,7 +69,7 @@ export default function UserPanic() {
             <span>HELP ME</span>
           </div>
         </Button>
-        <p className="text-xs text-muted-foreground">You've used this 6 times. It's saved you every time.</p>
+        <p className="text-xs text-muted-foreground">You've used this {panicCount} times. It's saved you every time.</p>
       </div>
     );
   }

@@ -81,11 +81,23 @@ export interface ApiMethods {
   // Additional methods (mock implementations)
   getUserLessons(): Promise<ApiResponse>;
   getUserSounds(): Promise<ApiResponse>;
+  getVoiceTherapy(): Promise<ApiResponse>;
+  getUserJournal(): Promise<ApiResponse>;
+  createJournalEntry(data: { mood: string; content: string }): Promise<ApiResponse>;
+  updateJournalEntry(id: string, data: { mood: string; content: string }): Promise<ApiResponse>;
+  deleteJournalEntry(id: string): Promise<ApiResponse>;
   getUserCommunity(): Promise<ApiResponse>;
+  createPost(data: { content: string; category: string }): Promise<ApiResponse>;
+  togglePostReaction(postId: string, emoji: string): Promise<ApiResponse>;
   getUserProfile(): Promise<ApiResponse>;
+  updateUserProfile(data: { full_name?: string; city?: string; madhab?: string }): Promise<ApiResponse>;
   getUserSubscription(): Promise<ApiResponse>;
   getUserSettings(): Promise<ApiResponse>;
-  updateUserSettings(): Promise<ApiResponse>;
+  updateUserSettings(data: { notifications?: any; privacy?: any; preferences?: any }): Promise<ApiResponse>;
+  getAIChatHistory(): Promise<ApiResponse>;
+  sendAIChatMessage(message: string): Promise<ApiResponse>;
+  getPanicStats(): Promise<ApiResponse>;
+  logPanicEvent(): Promise<ApiResponse>;
   getUser(id: string): Promise<ApiResponse>;
   updateUser(id: string, data: any): Promise<ApiResponse>;
   getDailyGoals(): Promise<ApiResponse>;

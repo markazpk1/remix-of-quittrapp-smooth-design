@@ -6,11 +6,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Settings, Bell, Shield, Palette, Globe, Volume2, Moon, Sun } from "lucide-react";
+import { Settings, Bell, Shield, Palette, Globe, Volume2, Moon, Sun, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function UserSettings() {

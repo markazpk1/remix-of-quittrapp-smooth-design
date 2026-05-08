@@ -11,6 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import CommunityPostCard, { type PostData } from "@/components/user/CommunityPostCard";
 import { api } from "@/services/api";
 import { toast } from "sonner";
@@ -146,6 +147,39 @@ export default function UserCommunity() {
     }
   };
 
+  const handlePost = async () => {
+    if (!newPost.trim()) return;
+    try {
+      const response = await api.createPost({
+        content: newPost,
+        category: postType
+      });
+      if (response.success) {
+        toast.success("Post shared with the community!");
+        setNewPost("");
+        fetchCommunityData();
+      }
+    } catch (error) {
+      toast.error("Failed to share post");
+    }
+  };
+
+  const filteredPosts = useMemo(() => {
+    const threads = communityData?.threads || [];
+    const baseFilter = activeFilter === "all" ? threads : threads.filter((p: any) => p.category === activeFilter);
+    return baseFilter.filter((p: any) => p.text.toLowerCase().includes(search.toLowerCase()));
+  }, [communityData, activeFilter, search]);
+
+  const toggleReaction = async (postId: string, emoji: string) => {
+    try {
+      await api.togglePostReaction(postId, emoji);
+      // Optimistic update or just refetch
+      fetchCommunityData();
+    } catch (error) {
+      console.error("Reaction error:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -154,31 +188,22 @@ export default function UserCommunity() {
     );
   }
 
-  const threads = communityData?.threads || [];
-
-  const filteredThreads = threads.filter((thread: any) =>
-    thread.content.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const allPosts = useMemo(() => {
-    const shared: PostData[] = JSON.parse(localStorage.getItem("quittr_community_posts") || "[]");
-    return [...shared, ...posts];
-  }, []);
-
-  const filteredPosts = activeFilter === "all" ? allPosts : allPosts.filter((p) => p.category === activeFilter);
-
-  const toggleReaction = (postId: number, emoji: string) => {
-    setLocalReactions((prev) => ({
-      ...prev,
-      [postId]: { ...prev[postId], [emoji]: !prev[postId]?.[emoji] },
-    }));
-  };
-
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Community</h1>
-        <p className="text-sm text-muted-foreground">Share your journey, support others, and find strength together.</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-foreground">Community</h1>
+          <p className="text-sm text-muted-foreground">Share your journey, support others, and find strength together.</p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search community..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 bg-card border-border/50 text-sm h-9"
+          />
+        </div>
       </div>
 
       {/* New Post */}
@@ -214,7 +239,7 @@ export default function UserCommunity() {
             rows={3}
           />
           <div className="flex justify-end">
-            <Button size="sm" className="bg-primary text-primary-foreground text-xs">
+            <Button size="sm" onClick={handlePost} className="bg-primary text-primary-foreground text-xs">
               <Send className="w-3 h-3 mr-1.5" /> Post
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +7,13 @@ import { Input } from "@/components/ui/input";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
   Clock, Heart, Search, Mic, Brain, ShieldCheck, Moon,
-  Sunrise, Sparkles, Repeat, Shuffle, ListMusic, X
+  Sunrise, Sparkles, Repeat, Shuffle, ListMusic, X, Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { api } from "@/services/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface VoiceTrack {
   id: number;
@@ -61,31 +65,63 @@ function formatTime(sec: number) {
 }
 
 export default function UserVoiceTherapy() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [voiceData, setVoiceData] = useState<any>(null);
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const [currentTrack, setCurrentTrack] = useState<VoiceTrack | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState([80]);
   const [muted, setMuted] = useState(false);
-  const [favorites, setFavorites] = useState<Set<number>>(new Set(tracks.filter(t => t.favorite).map(t => t.id)));
+  const [favorites, setFavorites] = useState<Set<any>>(new Set());
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
-  const [showQueue, setShowQueue] = useState(false);
+  const navigate = useNavigate();
 
-  const filtered = tracks.filter(t => {
+  useEffect(() => {
+    fetchVoiceData();
+  }, [user]);
+
+  const fetchVoiceData = async () => {
+    try {
+      setLoading(true);
+      if (!user) return;
+      
+      const response = await api.getVoiceTherapy();
+      if (response.error) {
+        toast.error('Failed to load voice therapy');
+        return;
+      }
+      
+      setVoiceData(response.data);
+      const favs = new Set(response.data.tracks.filter((t: any) => t.favorite).map((t: any) => t.id));
+      setFavorites(favs);
+    } catch (error) {
+      console.error('Voice data error:', error);
+      toast.error('Failed to load voice therapy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const tracks = voiceData?.tracks || [];
+  const categories = voiceData?.categories || ["All"];
+
+  const filtered = tracks.filter((t: any) => {
     const matchCat = category === "All" || t.category === category;
     const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase()) || t.therapist.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
 
-  const playTrack = (track: VoiceTrack) => {
+  const playTrack = (track: any) => {
     setCurrentTrack(track);
     setIsPlaying(true);
     setProgress(0);
   };
 
-  const toggleFavorite = (id: number) => {
+  const toggleFavorite = (id: any) => {
     setFavorites(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -95,7 +131,7 @@ export default function UserVoiceTherapy() {
 
   const skipNext = () => {
     if (!currentTrack) return;
-    const idx = filtered.findIndex(t => t.id === currentTrack.id);
+    const idx = filtered.findIndex((t: any) => t.id === currentTrack.id);
     const next = shuffle
       ? filtered[Math.floor(Math.random() * filtered.length)]
       : filtered[(idx + 1) % filtered.length];
@@ -104,10 +140,18 @@ export default function UserVoiceTherapy() {
 
   const skipPrev = () => {
     if (!currentTrack) return;
-    const idx = filtered.findIndex(t => t.id === currentTrack.id);
+    const idx = filtered.findIndex((t: any) => t.id === currentTrack.id);
     const prev = filtered[(idx - 1 + filtered.length) % filtered.length];
     playTrack(prev);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-28">

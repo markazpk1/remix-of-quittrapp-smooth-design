@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check, Phone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { SocialAuth } from "@/components/auth/SocialAuth";
 
 const passwordRules = [
   { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
@@ -209,6 +210,10 @@ export default function Register() {
               {isLoading ? "Creating account..." : "Create Account"} <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </form>
+
+          <div className="mt-6">
+            <SocialAuth />
+          </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Already have an account?{" "}

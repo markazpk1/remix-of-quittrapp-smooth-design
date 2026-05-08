@@ -25,14 +25,8 @@ export default function UserDashboard() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const navigate = useNavigate();
 
-  // Define missing variables
   const recLabel = "Stress Relief";
-  const tracks = [
-    { title: "Calming Breath", therapist: "Dr. Sarah", duration: "5:00", icon: Mic },
-    { title: "Morning Gratitude", therapist: "Imam Khalid", duration: "8:00", icon: Sun },
-    { title: "Nightly Reflection", therapist: "Ustadh Ali", duration: "10:00", icon: Moon },
-  ];
-
+  
   useEffect(() => {
     fetchDashboardData();
   }, [user]);
@@ -48,28 +42,7 @@ export default function UserDashboard() {
         return;
       }
       
-      // Fallback data if API returns minimal data
-      const data = response.data || {};
-      setDashboardData({
-        streakData: data.streakData || [
-          { day: "Mon", score: 65 },
-          { day: "Tue", score: 70 },
-          { day: "Wed", score: 68 },
-          { day: "Thu", score: 75 },
-          { day: "Fri", score: 82 },
-          { day: "Sat", score: 85 },
-          { day: "Sun", score: 90 },
-        ],
-        milestones: data.milestones || [
-          { label: "3 Day Streak", date: "Achieved", achieved: true, icon: Zap },
-          { label: "First Lesson", date: "Achieved", achieved: true, icon: Star },
-          { label: "1 Week Clean", date: "In Progress", achieved: false, icon: Trophy },
-        ],
-        recentActivity: data.recentActivity || [],
-        streak: data.streak || { prayer_streak: 3 },
-        dailyGoals: data.dailyGoals || { productivity_score: 85, prayers_completed: 3 },
-        profile: data.profile || { full_name: user.user_metadata?.full_name || user.email?.split('@')[0] }
-      });
+      setDashboardData(response.data);
     } catch (error) {
       console.error('Dashboard data error:', error);
       toast.error('Failed to load dashboard data');
@@ -79,11 +52,16 @@ export default function UserDashboard() {
   };
 
   const streakData = dashboardData?.streakData || [];
-  const milestones = dashboardData?.milestones || [];
+  const milestones = dashboardData?.milestones || [
+    { label: "3 Day Streak", date: "Achieved", achieved: true, icon: Zap },
+    { label: "First Lesson", date: "Achieved", achieved: true, icon: Star },
+    { label: "1 Week Clean", date: "In Progress", achieved: false, icon: Trophy },
+  ];
   const recentActivity = dashboardData?.recentActivity || [];
   const streak = dashboardData?.streak || {};
   const dailyGoals = dashboardData?.dailyGoals || {};
   const profile = dashboardData?.profile || {};
+  const recommendations = dashboardData?.recommendations || [];
 
   function getTimeOfDay() {
     const h = new Date().getHours();
@@ -216,27 +194,30 @@ export default function UserDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid sm:grid-cols-3 gap-3">
-            {tracks.map((track) => {
-              const TrackIcon = track.icon;
-              return (
+            {recommendations.length === 0 ? (
+              <div className="col-span-3 text-center py-6 text-muted-foreground bg-secondary/10 rounded-xl border border-dashed border-border/30">
+                No recommended tracks available yet.
+              </div>
+            ) : (
+              recommendations.map((track: any) => (
                 <div
-                  key={track.title}
+                  key={track.id}
                   className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/20 hover:border-primary/30 transition-colors cursor-pointer group"
                   onClick={() => navigate("/app/voice-therapy")}
                 >
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                    <TrackIcon className="w-5 h-5 text-primary" />
+                    <Mic className="w-5 h-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-foreground truncate">{track.title}</div>
-                    <div className="text-[11px] text-muted-foreground truncate">{track.therapist} · {track.duration}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{track.narrator || track.qari || 'System'} · {track.duration ? `${Math.floor(track.duration / 60)}:00` : '5:00'}</div>
                   </div>
                   <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Play className="w-4 h-4 text-primary" />
                   </Button>
                 </div>
-              );
-            })}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -268,57 +249,69 @@ export default function UserDashboard() {
             <CardTitle className="text-sm font-medium text-foreground">Milestones</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {milestones.map((m) => (
-              <div key={m.label} className={`flex items-center gap-3 p-2.5 rounded-lg ${m.achieved ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/30 border border-border/20"}`}>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${m.achieved ? "bg-green-500/20" : "bg-secondary/60"}`}>
-                  <m.icon className={`w-4 h-4 ${m.achieved ? "text-green-400" : "text-muted-foreground"}`} />
-                </div>
-                <div className="flex-1">
-                  <div className={`text-sm font-medium ${m.achieved ? "text-green-400" : "text-foreground"}`}>{m.label}</div>
-                  <div className="text-xs text-muted-foreground">{m.date}</div>
-                </div>
-                {m.achieved && (
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-primary"
-                      onClick={() => {
-                        const shared = JSON.parse(localStorage.getItem("quittr_community_posts") || "[]");
-                        const alreadyShared = shared.some((p: any) => p.milestone?.label === m.label);
-                        if (alreadyShared) {
-                          toast.info("You've already shared this milestone!");
-                          return;
-                        }
-                        shared.unshift({
-                          id: Date.now(),
-                          author: "You",
-                          avatar: "YO",
-                          time: "Just now",
-                          badge: m.label,
-                          text: `I just achieved "${m.label}"! 🎉 Another step forward in my recovery journey.`,
-                          category: "milestone",
-                          likes: 0,
-                          comments: 0,
-                          liked: false,
-                          milestone: { label: m.label },
-                          reactions: [
-                            { emoji: "🎉", label: "Celebrate", count: 0, reacted: false },
-                            { emoji: "💪", label: "Strong", count: 0, reacted: false },
-                          ],
-                        });
-                        localStorage.setItem("quittr_community_posts", JSON.stringify(shared));
-                        toast.success("Milestone shared to community! 🎉");
-                        navigate("/app/community");
-                      }}
-                    >
-                      <Share2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <Badge variant="outline" className="text-[9px] bg-green-500/20 text-green-400 border-green-500/30">Done</Badge>
+            {milestones.map((m: any) => {
+              const getIcon = (name: string) => {
+                switch(name) {
+                  case 'Zap': return Zap;
+                  case 'Star': return Star;
+                  case 'Trophy': return Trophy;
+                  default: return Trophy;
+                }
+              };
+              const Icon = typeof m.icon === 'string' ? getIcon(m.icon) : m.icon;
+
+              return (
+                <div key={m.label} className={`flex items-center gap-3 p-2.5 rounded-lg ${m.achieved ? "bg-green-500/10 border border-green-500/20" : "bg-secondary/30 border border-border/20"}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${m.achieved ? "bg-green-500/20" : "bg-secondary/60"}`}>
+                    <Icon className={`w-4 h-4 ${m.achieved ? "text-green-400" : "text-muted-foreground"}`} />
                   </div>
-                )}
-              </div>
-            ))}
+                  <div className="flex-1">
+                    <div className={`text-sm font-medium ${m.achieved ? "text-green-400" : "text-foreground"}`}>{m.label}</div>
+                    <div className="text-xs text-muted-foreground">{m.date}</div>
+                  </div>
+                  {m.achieved && (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-primary"
+                        onClick={() => {
+                          const shared = JSON.parse(localStorage.getItem("quittr_community_posts") || "[]");
+                          const alreadyShared = shared.some((p: any) => p.milestone?.label === m.label);
+                          if (alreadyShared) {
+                            toast.info("You've already shared this milestone!");
+                            return;
+                          }
+                          shared.unshift({
+                            id: Date.now(),
+                            author: profile.full_name || "You",
+                            avatar: (profile.full_name || "Y").substring(0, 2).toUpperCase(),
+                            time: "Just now",
+                            badge: m.label,
+                            text: `I just achieved "${m.label}"! 🎉 Another step forward in my recovery journey.`,
+                            category: "milestone",
+                            likes: 0,
+                            comments: 0,
+                            liked: false,
+                            milestone: { label: m.label },
+                            reactions: [
+                              { emoji: "🎉", label: "Celebrate", count: 0, reacted: false },
+                              { emoji: "💪", label: "Strong", count: 0, reacted: false },
+                            ],
+                          });
+                          localStorage.setItem("quittr_community_posts", JSON.stringify(shared));
+                          toast.success("Milestone shared to community! 🎉");
+                          navigate("/app/community");
+                        }}
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Badge variant="outline" className="text-[9px] bg-green-500/20 text-green-400 border-green-500/30">Done</Badge>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       </div>

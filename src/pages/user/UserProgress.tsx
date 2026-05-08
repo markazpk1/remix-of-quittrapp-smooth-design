@@ -32,33 +32,27 @@ export default function UserProgress() {
       }
       
       const data = response.data || {};
+      
+      // Also fetch dashboard data for streaks and stats
+      const dashResponse = await api.getUserDashboard();
+      const dashData = dashResponse.data || {};
+
       setProgressData({
         monthlyData: data.monthlyData || [
-          { week: "Week 1", clean: 5, cravings: 2 },
-          { week: "Week 2", clean: 6, cravings: 1 },
-          { week: "Week 3", clean: 4, cravings: 3 },
-          { week: "Week 4", clean: 7, cravings: 0 },
+          { week: "Week 1", clean: 0, cravings: 0 },
+          { week: "Week 2", clean: 0, cravings: 0 },
+          { week: "Week 3", clean: 0, cravings: 0 },
+          { week: "Week 4", clean: 0, cravings: 0 },
         ],
-        moodData: data.moodData || [
-          { day: "1", mood: 6 }, { day: "2", mood: 7 }, { day: "3", mood: 5 }, { day: "4", mood: 8 },
-          { day: "5", mood: 7 }, { day: "6", mood: 9 }, { day: "7", mood: 8 }, { day: "8", mood: 7 },
-          { day: "9", mood: 8 }, { day: "10", mood: 6 }, { day: "11", mood: 9 }, { day: "12", mood: 8 },
-          { day: "13", mood: 9 }, { day: "14", mood: 10 },
-        ],
-        achievements: data.achievements || [
-          { title: "3 Days Clean", desc: "Started the journey", icon: "🌱", unlocked: true },
-          { title: "First Lesson", desc: "Gained knowledge", icon: "📚", unlocked: true },
-          { title: "Community Star", desc: "Helped others", icon: "🌟", unlocked: false },
-          { title: "1 Month Clean", desc: "A big milestone", icon: "🌳", unlocked: false },
-          { title: "Journal Pro", desc: "Consistent entries", icon: "✍️", unlocked: true },
-        ],
-        stats: data.stats || [
-          { label: "Day Streak", value: "3", icon: "Flame", color: "bg-orange-500/20 text-orange-400" },
-          { label: "Total Clean", value: "22", icon: "Calendar", color: "bg-primary/20 text-primary" },
-          { label: "Lessons", value: "12", icon: "Trophy", color: "bg-green-500/20 text-green-400" },
-          { label: "Check-ins", value: "45", icon: "Target", color: "bg-blue-500/20 text-blue-400" },
-          { label: "Wellbeing", value: "85%", icon: "TrendingUp", color: "bg-purple-500/20 text-purple-400" },
-          { label: "Meditation", value: "120m", icon: "Clock", color: "bg-amber-500/20 text-amber-400" },
+        moodData: data.moodData || [],
+        achievements: data.achievements || [],
+        stats: [
+          { label: "Day Streak", value: dashData.streak?.prayer_streak || "0", icon: "Flame", color: "bg-orange-500/20 text-orange-400" },
+          { label: "Prayer Consistency", value: `${data.prayerConsistency || 0}%`, icon: "Calendar", color: "bg-primary/20 text-primary" },
+          { label: "Lessons", value: data.lessonsCompleted || "0", icon: "Trophy", color: "bg-green-500/20 text-green-400" },
+          { label: "Community", value: data.communityPosts || "0", icon: "Target", color: "bg-blue-500/20 text-blue-400" },
+          { label: "Productivity", value: `${dashData.dailyGoals?.productivity_score || 0}%`, icon: "TrendingUp", color: "bg-purple-500/20 text-purple-400" },
+          { label: "Library", value: `${data.quranProgress || 0}%`, icon: "Clock", color: "bg-amber-500/20 text-amber-400" },
         ],
         streaks: data.streaks || {}
       });
