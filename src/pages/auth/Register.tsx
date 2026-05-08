@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check, Phone } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Check, Phone, Wand2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { SocialAuth } from "@/components/auth/SocialAuth";
@@ -24,6 +24,27 @@ export default function Register() {
   const [madhab, setMadhab] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  const generatePassword = () => {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let retVal = "";
+    // Ensure at least one of each required type
+    retVal += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
+    retVal += "0123456789"[Math.floor(Math.random() * 10)];
+    retVal += "!@#$%^&*()_+"[Math.floor(Math.random() * 12)];
+    
+    for (let i = 0, n = charset.length; i < 9; ++i) {
+      retVal += charset.charAt(Math.floor(Math.random() * n));
+    }
+    
+    // Shuffle the password
+    retVal = retVal.split('').sort(() => 0.5 - Math.random()).join('');
+    
+    setPassword(retVal);
+    setShowPassword(true);
+    toast.success("Strong password generated! ✨");
+    clearError("password");
+  };
   const [agreeShariah, setAgreeShariah] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -157,7 +178,16 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm text-foreground">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm text-foreground">Password</Label>
+                <button 
+                  type="button" 
+                  onClick={generatePassword}
+                  className="text-[11px] text-emerald-600 font-medium hover:text-emerald-500 flex items-center gap-1 transition-colors"
+                >
+                  <Wand2 className="w-3 h-3" /> Generate strong password
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => { setPassword(e.target.value); clearError("password"); }} className={`pl-10 pr-10 bg-secondary/40 border-border/30 h-11 ${errors.password ? "border-destructive" : ""}`} />
