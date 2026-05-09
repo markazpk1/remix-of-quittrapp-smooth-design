@@ -2441,21 +2441,28 @@ export const api: ApiMethods = {
         .select('name')
         .order('sort_order', { ascending: true });
 
-      // 2. Fetch Audio Lessons (Sound Therapy)
+      // 2. Fetch Sound Tracks (joined with uploaded_files for the URL)
       const { data: sounds, error: soundsError } = await supabase
-        .from('library_content')
+        .from('sound_tracks')
         .select(`
-          id,
-          title,
-          content_type,
-          duration,
-          category:library_categories(name)
+          *,
+          file:uploaded_files(public_url)
         `)
-        .eq('content_type', 'audio_book');
+        .eq('status', 'active');
 
       if (soundsError) throw soundsError;
 
-      // Map colors and icons for the UI
+      // 3. Fetch Favorites
+      const { data: progress } = await supabase
+        .from('user_library_progress')
+        .select('content_id, is_favorite')
+        .eq('user_id', user.id);
+
+      const favMap = (progress || []).reduce((acc: any, curr) => {
+        acc[curr.content_id] = curr.is_favorite;
+        return acc;
+      }, {});
+
       const colorMap: any = {
         'Nature': 'bg-blue-500/20 text-blue-400',
         'Focus': 'bg-purple-500/20 text-purple-400',
@@ -2465,14 +2472,15 @@ export const api: ApiMethods = {
       };
 
       const formattedSounds = (sounds || []).map(s => {
-        const catName = (Array.isArray(s.category) ? (s.category[0] as any)?.name : (s.category as any)?.name) || 'General';
+        const catName = s.category || 'General';
         return {
           id: s.id,
-          title: s.title,
+          title: s.name,
           category: catName,
-          duration: s.duration ? `${Math.floor(s.duration / 60)}:00` : '30:00',
+          duration: s.duration || '30:00',
           color: colorMap[catName] || colorMap['General'],
-          favorite: false
+          favorite: favMap[s.id] || false,
+          audio_url: (s.file as any)?.public_url || ""
         };
       });
 
@@ -2498,38 +2506,48 @@ export const api: ApiMethods = {
         .select('name')
         .order('sort_order', { ascending: true });
 
-      // 2. Fetch Guided Sessions (Voice Therapy)
-      const { data: sessions, error: sessionError } = await supabase
-        .from('library_content')
+      // 2. Fetch Voice Tracks (joined with uploaded_files)
+      const { data: tracks, error: tracksError } = await supabase
+        .from('voice_tracks')
         .select(`
-          id,
-          title,
-          description,
-          content_type,
-          duration,
-          narrator,
-          category:library_categories(name)
-        `);
+          *,
+          file:uploaded_files(public_url)
+        `)
+        .eq('status', 'active');
 
-      if (sessionError) throw sessionError;
+      if (tracksError) throw tracksError;
 
-      // Format sessions for the UI
-      const formattedTracks = (sessions || []).map((s, idx) => {
-        const catName = (Array.isArray(s.category) ? (s.category[0] as any)?.name : (s.category as any)?.name) || 'Mindfulness';
-        const isAI = s.narrator?.toLowerCase().includes('ai');
-        
+      // 3. Fetch Favorites
+      const { data: progress } = await supabase
+        .from('user_library_progress')
+        .select('content_id, is_favorite')
+        .eq('user_id', user.id);
+
+      const favMap = (progress || []).reduce((acc: any, curr) => {
+        acc[curr.content_id] = curr.is_favorite;
+        return acc;
+      }, {});
+
+      const formattedTracks = (tracks || []).map(t => {
+        const isAI = t.source === 'tts' || t.voice_name?.toLowerCase().includes('ai');
+        const durationStr = t.duration || "10:00";
+        const durationParts = durationStr.split(':');
+        const durationSec = durationParts.length === 2 ? 
+          (parseInt(durationParts[0]) * 60 + parseInt(durationParts[1])) : 
+          (parseInt(durationStr) || 600);
+
         return {
-          id: s.id,
-          title: s.title,
-          therapist: s.narrator || "Expert Therapist",
-          duration: s.duration ? `${Math.floor(s.duration / 60)}:${(s.duration % 60).toString().padStart(2, '0')}` : "10:00",
-          durationSec: s.duration || 600,
-          category: catName,
-          description: s.description || "A guided session to support your recovery journey.",
-          voice: isAI ? "ai" : (idx % 2 === 0 ? "female" : "male"),
-          favorite: false,
-          plays: 1200 + (idx * 150),
-          isNew: idx < 2
+          id: t.id,
+          title: t.name,
+          therapist: t.voice_name || "Expert Therapist",
+          duration: durationStr,
+          durationSec: durationSec,
+          category: t.category || "Mindfulness",
+          description: t.description || "A guided therapeutic session.",
+          voice: isAI ? "ai" : (t.voice_name?.toLowerCase().includes('female') ? 'female' : 'male'),
+          favorite: favMap[t.id] || false,
+          plays: t.play_count || 0,
+          audio_url: (t.file as any)?.public_url || ""
         };
       });
 

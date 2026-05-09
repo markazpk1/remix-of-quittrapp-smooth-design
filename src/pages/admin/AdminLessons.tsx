@@ -41,9 +41,10 @@ export default function AdminLessons() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewType, setPreviewType] = useState<"video" | "audio">("video");
-  const [soundForm, setSoundForm] = useState({ name: "", category: "", duration: "" });
-  const [voiceForm, setVoiceForm] = useState({ name: "", voice: "", category: "", language: "English" });
+  const [soundForm, setSoundForm] = useState({ name: "", category: "", duration: "", file: null as File | null, fileId: "" });
+  const [voiceForm, setVoiceForm] = useState({ name: "", voice: "", category: "", language: "English", file: null as File | null, fileId: "" });
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: "", description: "", onConfirm: () => {} });
+  const [showTypeSelection, setShowTypeSelection] = useState(false);
 
   useEffect(() => {
     fetchContentData();
@@ -161,7 +162,7 @@ export default function AdminLessons() {
     });
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, targetType: 'lesson' | 'sound' | 'voice' = 'lesson') => {
     if (!file) return;
     
     setUploading(true);
@@ -178,7 +179,7 @@ export default function AdminLessons() {
       }
       
       // Save file metadata to database
-      const fileType = lessonForm.type === 'video' ? 'video' : 'audio';
+      const fileType = targetType === 'lesson' ? (lessonForm.type === 'video' ? 'video' : 'audio') : 'audio';
       const metadataResult = await saveFileMetadata({
         file_name: file.name,
         file_type: fileType,
@@ -192,13 +193,26 @@ export default function AdminLessons() {
         throw new Error(metadataResult.message);
       }
       
-      // Update form with the public URL, detected duration, and file ID
-      setLessonForm(prev => ({ 
-        ...prev, 
-        fileUrl: uploadResult.data.publicUrl,
-        duration: duration,
-        fileId: metadataResult.data.id
-      }));
+      // Update the correct form state
+      if (targetType === 'lesson') {
+        setLessonForm(prev => ({ 
+          ...prev, 
+          fileUrl: uploadResult.data.publicUrl,
+          duration: duration,
+          fileId: metadataResult.data.id
+        }));
+      } else if (targetType === 'sound') {
+        setSoundForm(prev => ({
+          ...prev,
+          duration: duration,
+          fileId: metadataResult.data.id
+        }));
+      } else if (targetType === 'voice') {
+        setVoiceForm(prev => ({
+          ...prev,
+          fileId: metadataResult.data.id
+        }));
+      }
       
       toast({ title: "Upload Complete", description: `${file.name} uploaded (${duration}) and saved to database` });
     } catch (error) {
@@ -335,6 +349,7 @@ export default function AdminLessons() {
         name: soundForm.name.trim(),
         category: soundForm.category.trim(),
         duration: soundForm.duration.trim() || "0:00",
+        file_id: soundForm.fileId || undefined,
         status: "active"
       };
 
@@ -346,7 +361,7 @@ export default function AdminLessons() {
 
       toast({ title: "Success", description: "Sound track saved to database" });
       setAddSoundOpen(false);
-      setSoundForm({ name: "", category: "", duration: "" });
+      setSoundForm({ name: "", category: "", duration: "", file: null, fileId: "" });
       
       // Refresh the sounds list
       await fetchContentData();
@@ -402,6 +417,7 @@ export default function AdminLessons() {
         category: voiceForm.category.trim(),
         language: voiceForm.language,
         duration: "0:00",
+        file_id: voiceForm.fileId || undefined,
         file_size: "0.0 MB",
         source: "uploaded",
         status: "active"
@@ -415,7 +431,7 @@ export default function AdminLessons() {
 
       toast({ title: "Success", description: "Voice track saved to database" });
       setAddVoiceOpen(false);
-      setVoiceForm({ name: "", voice: "", category: "", language: "English" });
+      setVoiceForm({ name: "", voice: "", category: "", language: "English", file: null, fileId: "" });
       
       // Refresh the voices list
       await fetchContentData();
@@ -479,6 +495,60 @@ export default function AdminLessons() {
 
       <div><h1 className="font-display text-2xl font-bold text-foreground">Lessons, Sound & Voice Therapy</h1><p className="text-sm text-muted-foreground">Manage educational content, sound therapy tracks, and voice recordings.</p></div>
 
+      <div className="flex justify-end">
+        <Button onClick={() => setShowTypeSelection(true)} className="bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 transition-transform h-11 px-6 rounded-xl font-bold">
+          <Plus className="w-5 h-5 mr-2" /> Add New Content
+        </Button>
+      </div>
+
+      <Dialog open={showTypeSelection} onOpenChange={setShowTypeSelection}>
+        <DialogContent className="bg-card border-border/40 max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold font-display">Select Content Type</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            <button 
+              onClick={() => { setShowTypeSelection(false); setAddLessonOpen(true); }}
+              className="flex items-center gap-4 p-4 rounded-xl bg-secondary/40 border border-border/30 hover:border-primary/50 hover:bg-secondary/60 transition-all text-left group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <BookOpen className="w-6 h-6 text-emerald-500" />
+              </div>
+              <div>
+                <div className="font-bold text-foreground">Normal Lesson</div>
+                <div className="text-[11px] text-muted-foreground">Standard educational articles or videos</div>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => { setShowTypeSelection(false); setAddSoundOpen(true); }}
+              className="flex items-center gap-4 p-4 rounded-xl bg-secondary/40 border border-border/30 hover:border-primary/50 hover:bg-secondary/60 transition-all text-left group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Headphones className="w-6 h-6 text-blue-500" />
+              </div>
+              <div>
+                <div className="font-bold text-foreground">Sound Therapy</div>
+                <div className="text-[11px] text-muted-foreground">Nature sounds, ambient tracks, and audio</div>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => { setShowTypeSelection(false); setAddVoiceOpen(true); }}
+              className="flex items-center gap-4 p-4 rounded-xl bg-secondary/40 border border-border/30 hover:border-primary/50 hover:bg-secondary/60 transition-all text-left group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Mic className="w-6 h-6 text-purple-500" />
+              </div>
+              <div>
+                <div className="font-bold text-foreground">Voice Therapy</div>
+                <div className="text-[11px] text-muted-foreground">Guided narrations and therapeutic voices</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {loading ? (
           <div className="col-span-4 flex items-center justify-center py-20">
@@ -502,105 +572,7 @@ export default function AdminLessons() {
         <TabsContent value="lessons" className="space-y-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder="Search lessons..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary/40 border-border/30 text-sm" /></div>
-            <Dialog open={addLessonOpen} onOpenChange={setAddLessonOpen}>
-              <DialogTrigger asChild><Button className="bg-primary text-primary-foreground"><Plus className="w-4 h-4 mr-2" /> New Lesson</Button></DialogTrigger>
-              <DialogContent className="bg-card border-border/40 max-w-2xl">
-                <DialogHeader><DialogTitle className="text-foreground">Create Lesson</DialogTitle></DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2"><Label>Title</Label><Input value={lessonForm.title} onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })} placeholder="Lesson title" className="bg-secondary/40 border-border/30" /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2"><Label>Category</Label><Input value={lessonForm.category} onChange={(e) => setLessonForm({ ...lessonForm, category: e.target.value })} placeholder="e.g. Science" className="bg-secondary/40 border-border/30" /></div>
-                    <div className="space-y-2"><Label>Type</Label>
-                      <Select value={lessonForm.type} onValueChange={(v) => setLessonForm({ ...lessonForm, type: v })}>
-                        <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-card border-border/40"><SelectItem value="article">Article</SelectItem><SelectItem value="video">Video</SelectItem><SelectItem value="audio">Audio</SelectItem></SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  {/* Type-specific upload options */}
-                  {lessonForm.type === "article" && (
-                    <div className="space-y-2">
-                      <Label>Content</Label>
-                      <Textarea 
-                        value={lessonForm.content} 
-                        onChange={(e) => setLessonForm({ ...lessonForm, content: e.target.value })} 
-                        placeholder="Write the article content here..." 
-                        className="bg-secondary/40 border-border/30 min-h-[120px]" 
-                      />
-                    </div>
-                  )}
-                  
-                  {(lessonForm.type === "video" || lessonForm.type === "audio") && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Upload from Local</Label>
-                        <div className="flex items-center gap-3">
-                          <Input 
-                            type="file" 
-                            accept={lessonForm.type === "video" ? "video/*" : "audio/*"}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0] || null;
-                              setLessonForm({ ...lessonForm, file });
-                              if (file) {
-                                handleFileUpload(file);
-                              }
-                            }}
-                            disabled={uploading}
-                            className="bg-secondary/40 border-border/30 cursor-pointer" 
-                          />
-                          {uploading && (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                              <span className="text-xs text-muted-foreground">Uploading...</span>
-                            </div>
-                          )}
-                          {lessonForm.file && !uploading && (
-                            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                              {lessonForm.file.name}
-                            </span>
-                          )}
-                        </div>
-                        {lessonForm.fileUrl && lessonForm.file && (
-                          <div className="text-xs text-green-500 mt-1">
-                            ✓ File uploaded successfully
-                          </div>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-border/30"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-card px-2 text-muted-foreground">Or enter URL</span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>{lessonForm.type === "video" ? "Video URL" : "Audio URL"}</Label>
-                        <Input 
-                          value={lessonForm.fileUrl} 
-                          onChange={(e) => setLessonForm({ ...lessonForm, fileUrl: e.target.value })}
-                          disabled={uploading}
-                          placeholder={`https://example.com/${lessonForm.type}.mp${lessonForm.type === "video" ? "4" : "3"}`} 
-                          className="bg-secondary/40 border-border/30" 
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Duration</Label>
-                        <Input 
-                          value={lessonForm.duration} 
-                          onChange={(e) => setLessonForm({ ...lessonForm, duration: e.target.value })} 
-                          placeholder="e.g. 15:30" 
-                          className="bg-secondary/40 border-border/30" 
-                        />
-                      </div>
-                    </>
-                  )}
-                  
-                  <Button onClick={addLesson} className="w-full">Create Lesson</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+
           </div>
 
           <Card className="bg-card/60 border-border/40">
@@ -663,20 +635,6 @@ export default function AdminLessons() {
 
         <TabsContent value="sounds" className="space-y-4">
           <div className="flex justify-end">
-            <Dialog open={addSoundOpen} onOpenChange={setAddSoundOpen}>
-              <DialogTrigger asChild><Button className="bg-primary text-primary-foreground"><Plus className="w-4 h-4 mr-2" /> Add Track</Button></DialogTrigger>
-              <DialogContent className="bg-card border-border/40">
-                <DialogHeader><DialogTitle className="text-foreground">Add Sound Track</DialogTitle></DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2"><Label>Track Name</Label><Input value={soundForm.name} onChange={(e) => setSoundForm({ ...soundForm, name: e.target.value })} placeholder="e.g. Rainfall" className="bg-secondary/40 border-border/30" /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2"><Label>Category</Label><Input value={soundForm.category} onChange={(e) => setSoundForm({ ...soundForm, category: e.target.value })} placeholder="e.g. Nature" className="bg-secondary/40 border-border/30" /></div>
-                    <div className="space-y-2"><Label>Duration</Label><Input value={soundForm.duration} onChange={(e) => setSoundForm({ ...soundForm, duration: e.target.value })} placeholder="e.g. 30 min" className="bg-secondary/40 border-border/30" /></div>
-                  </div>
-                  <Button onClick={addSound} className="w-full">Add Track</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {loading ? (
@@ -706,20 +664,6 @@ export default function AdminLessons() {
         <TabsContent value="voices" className="space-y-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder="Search voice tracks..." value={voiceSearch} onChange={(e) => setVoiceSearch(e.target.value)} className="pl-9 bg-secondary/40 border-border/30 text-sm" /></div>
-            <Dialog open={addVoiceOpen} onOpenChange={setAddVoiceOpen}>
-              <DialogTrigger asChild><Button className="bg-primary text-primary-foreground"><Plus className="w-4 h-4 mr-2" /> Add Voice Track</Button></DialogTrigger>
-              <DialogContent className="bg-card border-border/40">
-                <DialogHeader><DialogTitle className="text-foreground">Add Voice Track</DialogTitle></DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2"><Label>Track Name</Label><Input value={voiceForm.name} onChange={(e) => setVoiceForm({ ...voiceForm, name: e.target.value })} placeholder="e.g. Morning Motivation" className="bg-secondary/40 border-border/30" /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2"><Label>Voice</Label><Input value={voiceForm.voice} onChange={(e) => setVoiceForm({ ...voiceForm, voice: e.target.value })} placeholder="e.g. Sarah" className="bg-secondary/40 border-border/30" /></div>
-                    <div className="space-y-2"><Label>Category</Label><Input value={voiceForm.category} onChange={(e) => setVoiceForm({ ...voiceForm, category: e.target.value })} placeholder="e.g. Affirmations" className="bg-secondary/40 border-border/30" /></div>
-                  </div>
-                  <Button onClick={addVoice} className="w-full">Add Voice Track</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
 
           <Card className="bg-card/60 border-border/40">
@@ -759,6 +703,77 @@ export default function AdminLessons() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Central Dialogs for Adding Content */}
+      <Dialog open={addLessonOpen} onOpenChange={setAddLessonOpen}>
+        <DialogContent className="bg-card border-border/40 max-w-2xl">
+          <DialogHeader><DialogTitle className="text-foreground">Create Lesson</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2"><Label>Title</Label><Input value={lessonForm.title} onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })} placeholder="Lesson title" className="bg-secondary/40 border-border/30" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Category</Label><Input value={lessonForm.category} onChange={(e) => setLessonForm({ ...lessonForm, category: e.target.value })} placeholder="e.g. Science" className="bg-secondary/40 border-border/30" /></div>
+              <div className="space-y-2"><Label>Type</Label>
+                <Select value={lessonForm.type} onValueChange={(v) => setLessonForm({ ...lessonForm, type: v })}>
+                  <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-card border-border/40"><SelectItem value="article">Article</SelectItem><SelectItem value="video">Video</SelectItem><SelectItem value="audio">Audio</SelectItem></SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {lessonForm.type === "article" && (
+              <div className="space-y-2">
+                <Label>Content</Label>
+                <Textarea value={lessonForm.content} onChange={(e) => setLessonForm({ ...lessonForm, content: e.target.value })} placeholder="Write the article content here..." className="bg-secondary/40 border-border/30 min-h-[120px]" />
+              </div>
+            )}
+            
+            {(lessonForm.type === "video" || lessonForm.type === "audio") && (
+              <div className="space-y-2">
+                <Label>Upload from Local</Label>
+                <Input type="file" accept={lessonForm.type === "video" ? "video/*" : "audio/*"} onChange={(e) => { const file = e.target.files?.[0] || null; setLessonForm({ ...lessonForm, file }); if (file) handleFileUpload(file, 'lesson'); }} className="bg-secondary/40 border-border/30" />
+              </div>
+            )}
+            
+            <Button onClick={addLesson} className="w-full">Create Lesson</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addSoundOpen} onOpenChange={setAddSoundOpen}>
+        <DialogContent className="bg-card border-border/40">
+          <DialogHeader><DialogTitle className="text-foreground">Add Sound Track</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2"><Label>Track Name</Label><Input value={soundForm.name} onChange={(e) => setSoundForm({ ...soundForm, name: e.target.value })} placeholder="e.g. Rainfall" className="bg-secondary/40 border-border/30" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Category</Label><Input value={soundForm.category} onChange={(e) => setSoundForm({ ...soundForm, category: e.target.value })} placeholder="e.g. Nature" className="bg-secondary/40 border-border/30" /></div>
+              <div className="space-y-2"><Label>Duration</Label><Input value={soundForm.duration} onChange={(e) => setSoundForm({ ...soundForm, duration: e.target.value })} placeholder="e.g. 30 min" className="bg-secondary/40 border-border/30" /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Upload Audio File</Label>
+              <Input type="file" accept="audio/*" onChange={(e) => { const file = e.target.files?.[0] || null; setSoundForm({ ...soundForm, file }); if (file) handleFileUpload(file, 'sound'); }} className="bg-secondary/40 border-border/30" />
+            </div>
+            <Button onClick={addSound} className="w-full">Add Track</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addVoiceOpen} onOpenChange={setAddVoiceOpen}>
+        <DialogContent className="bg-card border-border/40">
+          <DialogHeader><DialogTitle className="text-foreground">Add Voice Track</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2"><Label>Track Name</Label><Input value={voiceForm.name} onChange={(e) => setVoiceForm({ ...voiceForm, name: e.target.value })} placeholder="e.g. Morning Motivation" className="bg-secondary/40 border-border/30" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><Label>Voice</Label><Input value={voiceForm.voice} onChange={(e) => setVoiceForm({ ...voiceForm, voice: e.target.value })} placeholder="e.g. Sarah" className="bg-secondary/40 border-border/30" /></div>
+              <div className="space-y-2"><Label>Category</Label><Input value={voiceForm.category} onChange={(e) => setVoiceForm({ ...voiceForm, category: e.target.value })} placeholder="e.g. Affirmations" className="bg-secondary/40 border-border/30" /></div>
+            </div>
+            <div className="space-y-2">
+              <Label>Upload Voice Recording</Label>
+              <Input type="file" accept="audio/*" onChange={(e) => { const file = e.target.files?.[0] || null; setVoiceForm({ ...voiceForm, file }); if (file) handleFileUpload(file, 'voice'); }} className="bg-secondary/40 border-border/30" />
+            </div>
+            <Button onClick={addVoice} className="w-full">Add Voice Track</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

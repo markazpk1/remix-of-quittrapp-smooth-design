@@ -92,6 +92,12 @@ export default function UserLessons() {
 
   const filtered = lessons.filter((l: any) => {
     const matchSearch = l.title.toLowerCase().includes(search.toLowerCase());
+    
+    // Special handling for Favorites tab
+    if (category === "Favorites") {
+      return matchSearch && l.is_favorite;
+    }
+    
     const matchCat = category === "All" || l.category === category;
     return matchSearch && matchCat;
   });
@@ -117,8 +123,33 @@ export default function UserLessons() {
           <Input placeholder="Search lessons..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card/60 border-border/30 text-sm h-10" />
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {/* Favorites Tab */}
+          <Button 
+            variant={category === "Favorites" ? "default" : "outline"} 
+            size="sm" 
+            className={`text-xs h-10 px-4 rounded-xl flex items-center gap-2 transition-all duration-300 ${
+              category === "Favorites" 
+                ? "bg-rose-500 text-white hover:bg-rose-600 border-none shadow-lg shadow-rose-500/20 scale-105" 
+                : "bg-card/40 border-border/30 text-muted-foreground hover:text-foreground"
+            }`} 
+            onClick={() => setCategory("Favorites")}
+          >
+            <Heart className={`w-3.5 h-3.5 ${category === "Favorites" ? "fill-current" : ""}`} />
+            Favorites
+          </Button>
+
           {categories.map((c: string) => (
-            <Button key={c} variant={category === c ? "default" : "outline"} size="sm" className={`text-xs h-10 px-4 rounded-xl ${category === c ? "bg-primary text-primary-foreground" : "bg-card/40 border-border/30 text-muted-foreground hover:text-foreground"}`} onClick={() => setCategory(c)}>
+            <Button 
+              key={c} 
+              variant={category === c ? "default" : "outline"} 
+              size="sm" 
+              className={`text-xs h-10 px-4 rounded-xl transition-all duration-300 ${
+                category === c 
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105" 
+                  : "bg-card/40 border-border/30 text-muted-foreground hover:text-foreground"
+              }`} 
+              onClick={() => setCategory(c)}
+            >
               {c}
             </Button>
           ))}
