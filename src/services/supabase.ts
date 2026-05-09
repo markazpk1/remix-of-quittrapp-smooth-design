@@ -155,7 +155,7 @@ export const saveLessonToDatabase = async (lessonData: {
       .insert({
         title: lessonData.title,
         content_type: lessonData.content_type,
-        content: lessonData.content,
+        text_content: lessonData.content, // Changed from content to text_content
         audio_url: mediaUrl,
         category_id: catId,
         duration: typeof lessonData.duration === 'string' ? 
@@ -170,13 +170,23 @@ export const saveLessonToDatabase = async (lessonData: {
       .single();
 
     if (error) {
+      console.error('Supabase library_content insert error:', error);
       // If table doesn't exist, provide helpful error message
       if (error.message.includes('relation') || error.message.includes('does not exist')) {
         return {
           success: false,
-          message: 'Database tables not created yet. Please run the file_storage_schema.sql file in Supabase SQL Editor.'
+          message: 'Database table library_content not found. Please run the schema.sql file in Supabase SQL Editor.'
         };
       }
+      
+      // Handle missing columns
+      if (error.code === '42703') {
+        return {
+          success: false,
+          message: `Database schema mismatch: ${error.message}. Please update your database schema.`
+        };
+      }
+
       throw error;
     }
 
@@ -189,6 +199,41 @@ export const saveLessonToDatabase = async (lessonData: {
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to save lesson'
+    };
+  }
+};
+
+// Function to update lesson in database
+export const updateLessonInDatabase = async (lessonId: string, lessonData: any) => {
+  try {
+    // Map content to text_content if present
+    const updateData = { ...lessonData };
+    if (updateData.content !== undefined) {
+      updateData.text_content = updateData.content;
+      delete updateData.content;
+    }
+
+    const { data, error } = await supabase
+      .from('library_content')
+      .update(updateData)
+      .eq('id', lessonId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Update lesson error:', error);
+      throw error;
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    console.error('Update lesson error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update lesson'
     };
   }
 };

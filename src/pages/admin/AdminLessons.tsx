@@ -15,7 +15,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, Eye, BookOpen, Headphones, Video, FileText, Upload, Mic, Play, Pause, Volume2, Download, Globe, Clock, Users, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
-import { uploadFileToStorage, saveFileMetadata, saveLessonToDatabase, fetchLessonsFromDatabase, deleteLessonFromDatabase, saveSoundTrackToDatabase, fetchSoundTracksFromDatabase, deleteSoundTrackFromDatabase, saveVoiceTrackToDatabase, fetchVoiceTracksFromDatabase, deleteVoiceTrackFromDatabase } from "@/services/supabase";
+import { uploadFileToStorage, saveFileMetadata, saveLessonToDatabase, updateLessonInDatabase, fetchLessonsFromDatabase, deleteLessonFromDatabase, saveSoundTrackToDatabase, fetchSoundTracksFromDatabase, deleteSoundTrackFromDatabase, saveVoiceTrackToDatabase, fetchVoiceTracksFromDatabase, deleteVoiceTrackFromDatabase } from "@/services/supabase";
 
 interface Lesson { id: string; title: string; category: string; type: string; status: string; views: number; duration: string; order: number; fileUrl?: string; }
 interface Sound { id: string; name: string; category: string; duration: string; plays: number; status: string; }
@@ -302,13 +302,26 @@ export default function AdminLessons() {
     });
   };
 
-  const toggleLessonStatus = (id: string) => {
-    setLessons((prev) => prev.map((lesson) => {
-      if (lesson.id !== id) return lesson;
-      const newStatus = lesson.status === "published" ? "draft" : "published";
+  const toggleLessonStatus = async (id: string) => {
+    const lesson = lessons.find(l => l.id === id);
+    if (!lesson) return;
+    
+    const newStatus = lesson.status === "published" ? "draft" : "published";
+    
+    try {
+      const result = await updateLessonInDatabase(id, { status: newStatus });
+      if (!result.success) throw new Error(result.message);
+      
+      setLessons((prev) => prev.map((l) => {
+        if (l.id !== id) return l;
+        return { ...l, status: newStatus };
+      }));
+      
       toast({ title: "Status Updated", description: `Lesson is now ${newStatus}` });
-      return { ...lesson, status: newStatus };
-    }));
+    } catch (error) {
+      console.error('Update status error:', error);
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    }
   };
 
   const addSound = async () => {

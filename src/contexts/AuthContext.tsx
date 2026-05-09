@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // If we're on the login page, register page, or root, go to dashboard
         const authPaths = ['/login', '/register', '/'];
         if (authPaths.includes(location.pathname)) {
-          navigate('/dashboard');
+          navigate('/app');
         }
       }
     });
