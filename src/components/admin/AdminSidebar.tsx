@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, ChevronLeft, LogOut, Blocks, BookOpen, MessageSquare, CreditCard, Bell, BarChart3, ScrollText, LifeBuoy, ShieldCheck, ImageIcon, Handshake } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Settings, ChevronLeft, LogOut, Blocks, BookOpen, MessageSquare, CreditCard, Bell, BarChart3, ScrollText, LifeBuoy, ShieldCheck, ImageIcon, Handshake, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import {
@@ -27,6 +27,7 @@ const items = [
   { title: "Roles & Permissions", url: "/admin/roles", icon: ShieldCheck },
   { title: "Services", url: "/admin/services", icon: Blocks },
   { title: "Lessons & Sounds", url: "/admin/lessons", icon: BookOpen },
+  { title: "Daily Inspiration", url: "/admin/inspiration", icon: Sparkles },
   { title: "Community", url: "/admin/community", icon: MessageSquare },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: CreditCard },
   { title: "Support Tickets", url: "/admin/support", icon: LifeBuoy },

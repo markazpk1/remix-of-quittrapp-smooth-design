@@ -175,4 +175,8 @@ export interface ApiMethods {
   rotateApiKey(name: string): Promise<ApiResponse>;
   revokeApiKey(name: string): Promise<ApiResponse>;
   generateApiKey(name: string): Promise<ApiResponse>;
+  fetchDailyInspirations(): Promise<ApiResponse>;
+  createDailyInspiration(quoteData: { text: string; author: string; stage: string }): Promise<ApiResponse>;
+  updateDailyInspiration(id: string, quoteData: Partial<{ text: string; author: string; stage: string }>): Promise<ApiResponse>;
+  deleteDailyInspiration(id: string): Promise<ApiResponse>;
 }

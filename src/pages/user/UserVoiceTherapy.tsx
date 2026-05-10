@@ -78,6 +78,7 @@ export default function UserVoiceTherapy() {
   const [favorites, setFavorites] = useState<Set<any>>(new Set());
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,10 +116,61 @@ export default function UserVoiceTherapy() {
     return matchCat && matchSearch;
   });
 
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = muted ? 0 : volume[0] / 100;
+    }
+  }, [volume, muted]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (currentTrack && isPlaying) {
+      if (audioRef.current.src !== currentTrack.audio_url) {
+        audioRef.current.src = currentTrack.audio_url;
+      }
+      audioRef.current.play().catch(err => {
+        console.error("Audio play error:", err);
+        toast.error("Could not play audio track");
+      });
+    } else {
+      audioRef.current.pause();
+    }
+  }, [currentTrack, isPlaying]);
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setProgress(audioRef.current.currentTime);
+    }
+  };
+
+  const handleSeek = (val: number[]) => {
+    const newVal = val[0];
+    setProgress(newVal);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newVal;
+    }
+  };
+
+  const handleEnded = () => {
+    if (repeat) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+    } else {
+      skipNext();
+    }
+  };
+
   const playTrack = (track: any) => {
-    setCurrentTrack(track);
-    setIsPlaying(true);
-    setProgress(0);
+    if (currentTrack?.id === track.id) {
+      setIsPlaying(!isPlaying);
+    } else {
+      setCurrentTrack(track);
+      setIsPlaying(true);
+      setProgress(0);
+    }
   };
 
   const toggleFavorite = (id: any) => {
@@ -329,9 +381,9 @@ export default function UserVoiceTherapy() {
             <div className="h-1 bg-muted w-full">
               <Slider
                 value={[progress]}
-                onValueChange={v => setProgress(v[0])}
-                max={currentTrack.durationSec}
-                step={1}
+                onValueChange={handleSeek}
+                max={currentTrack.durationSec || 600}
+                step={0.1}
                 className="h-1 rounded-none [&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:-top-1"
               />
             </div>
@@ -404,6 +456,12 @@ export default function UserVoiceTherapy() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <audio 
+        ref={audioRef} 
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleEnded}
+      />
     </div>
   );
 }

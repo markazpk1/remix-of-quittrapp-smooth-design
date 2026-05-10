@@ -26,6 +26,7 @@ import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
 import AdminRoles from "./pages/admin/AdminRoles";
 import AdminMedia from "./pages/admin/AdminMedia";
 import AdminAffiliates from "./pages/admin/AdminAffiliates";
+import AdminInspiration from "./pages/admin/AdminInspiration";
 import UserLayout from "./components/user/UserLayout";
 import UserDashboard from "./pages/user/UserDashboard";
 import UserProgress from "./pages/user/UserProgress";
@@ -80,6 +81,7 @@ const App = () => (
                   <Route path="support" element={<AdminSupportTickets />} />
                   <Route path="roles" element={<AdminRoles />} />
                   <Route path="affiliates" element={<AdminAffiliates />} />
+                  <Route path="inspiration" element={<AdminInspiration />} />
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
                 <Route path="/app" element={

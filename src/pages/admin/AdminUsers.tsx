@@ -19,7 +19,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
-import { Search, MoreHorizontal, Shield, Ban, Mail, Trash2, UserPlus } from "lucide-react";
+import { Search, MoreHorizontal, Shield, Ban, Mail, Trash2, UserPlus, Sparkles, Plus, Pencil } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "../../hooks/use-toast";
 import { api } from "../../services/api";
 
@@ -59,11 +60,12 @@ export default function AdminUsers() {
   const [emailMessage, setEmailMessage] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [availableRoles, setAvailableRoles] = useState<Array<{id: string; name: string; system: boolean}>>([]);
-
+  
   useEffect(() => {
     fetchUsers();
     fetchAvailableRoles();
   }, []);
+
 
   const fetchAvailableRoles = async () => {
     try {
@@ -385,120 +387,215 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6">
-      <ConfirmDialog open={confirm.open} onOpenChange={(open) => setConfirm((c) => ({ ...c, open }))} title={confirm.title} description={confirm.description} onConfirm={confirm.onConfirm} confirmLabel="Yes, continue" />
+      <ConfirmDialog 
+        open={confirm.open} 
+        onOpenChange={(open) => setConfirm((c) => ({ ...c, open }))} 
+        title={confirm.title} 
+        description={confirm.description} 
+        onConfirm={confirm.onConfirm} 
+        confirmLabel="Yes, continue" 
+      />
 
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Users</h1>
-          <p className="text-sm text-muted-foreground">Manage user accounts, roles, and permissions.</p>
+          <h1 className="font-display text-2xl font-bold text-foreground">Community & Users</h1>
+          <p className="text-sm text-muted-foreground">Manage user accounts and system roles.</p>
         </div>
-        <Dialog 
-          open={addDialogOpen} 
-          onOpenChange={(open) => {
-            if (!open) {
-              // Reset form when dialog is closed
-              setNewUser({ name: "", email: "", role: "user", plan: "Starter" });
-              setIsCreatingUser(false);
-            }
-            setAddDialogOpen(open);
-          }}
-        >
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground"><UserPlus className="w-4 h-4 mr-2" /> Add User</Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
+              <UserPlus className="w-4 h-4 mr-2" /> Add New User
+            </Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border/40">
-            <DialogHeader><DialogTitle className="text-foreground">Add New User</DialogTitle></DialogHeader>
-            <div className="space-y-4 pt-2">
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Add New User</DialogTitle>
+              <DialogDescription className="text-muted-foreground">Create a new user account with specific role and plan.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input 
-                  id="name"
+                  id="name" 
                   value={newUser.name} 
                   onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} 
-                  placeholder="Enter full name" 
-                  className="bg-secondary/40 border-border/30"
-                  disabled={isCreatingUser}
+                  placeholder="Full name" 
+                  className="bg-secondary/40 border-border/30" 
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input 
-                  id="email"
-                  type="email"
+                  id="email" 
                   value={newUser.email} 
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} 
-                  placeholder="user@example.com" 
-                  className="bg-secondary/40 border-border/30"
-                  disabled={isCreatingUser}
+                  placeholder="email@example.com" 
+                  className="bg-secondary/40 border-border/30" 
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select value={newUser.role} onValueChange={(v) => setNewUser({ ...newUser, role: v })} disabled={isCreatingUser}>
+                  <Label>Role</Label>
+                  <Select value={newUser.role} onValueChange={(v) => setNewUser({ ...newUser, role: v })}>
                     <SelectTrigger className="bg-secondary/40 border-border/30">
-                      <SelectValue />
+                      <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border/40">
                       {availableRoles.map((role) => (
-                        <SelectItem key={role.id} value={role.name.toLowerCase()}>
-                          {role.name}
-                        </SelectItem>
+                        <SelectItem key={role.id} value={role.name.toLowerCase()}>{role.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="plan">Plan</Label>
-                  <Select value={newUser.plan} onValueChange={(v) => setNewUser({ ...newUser, plan: v })} disabled={isCreatingUser}>
+                  <Label>Plan</Label>
+                  <Select value={newUser.plan} onValueChange={(v) => setNewUser({ ...newUser, plan: v })}>
                     <SelectTrigger className="bg-secondary/40 border-border/30">
-                      <SelectValue />
+                      <SelectValue placeholder="Select plan" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border/40">
                       <SelectItem value="Starter">Starter</SelectItem>
                       <SelectItem value="Pro">Pro</SelectItem>
-                      <SelectItem value="Enterprise">Enterprise</SelectItem>
+                      <SelectItem value="Premium">Premium</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button 
-                onClick={addUser} 
-                className="w-full" 
-                disabled={isCreatingUser}
-              >
-                {isCreatingUser ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Creating User...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Create User
-                  </>
-                )}
-              </Button>
+              <DialogFooter className="pt-4">
+                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <Button onClick={addUser} disabled={isCreatingUser}>
+                  {isCreatingUser ? "Creating..." : "Create User"}
+                </Button>
+              </DialogFooter>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      <Card className="bg-card/50 border-border/40 backdrop-blur-sm">
+        <CardContent className="p-0">
+          <div className="p-4 border-b border-border/10 flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search users by name or email..." 
+                className="pl-10 bg-secondary/40 border-border/30 h-10" 
+                value={search} 
+                onChange={(e) => setSearch(e.target.value)} 
+              />
+            </div>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border/30 hover:bg-transparent">
+                <TableHead className="text-muted-foreground pl-6">User</TableHead>
+                <TableHead className="text-muted-foreground">Role</TableHead>
+                <TableHead className="text-muted-foreground">Status</TableHead>
+                <TableHead className="text-muted-foreground">Plan</TableHead>
+                <TableHead className="text-muted-foreground">Joined</TableHead>
+                <TableHead className="text-muted-foreground w-12 text-right pr-6">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                [1, 2, 3, 4, 5].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={6} className="py-4 pl-6 pr-6"><Skeleton className="h-10 w-full bg-secondary/40" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    No users found matching your search.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((user) => (
+                  <TableRow key={user.id} className="border-border/20 hover:bg-secondary/20 group">
+                    <TableCell className="pl-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium text-foreground truncate">{user.name}</span>
+                          <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${roleBadge(user.role.toLowerCase())}`}>
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${statusBadge(user.status.toLowerCase())}`}>
+                        {user.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-foreground">{user.plan}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground">{user.joined}</span>
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-secondary transition-colors">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 bg-card border-border/40 backdrop-blur-md shadow-xl">
+                          <DropdownMenuItem onClick={() => { setRoleDialogUser(user); setNewRole(user.role.toLowerCase()); setRoleDialogOpen(true); }}>
+                            <Shield className="w-4 h-4 mr-2 text-primary" /> Change Role
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => sendEmail(user)}>
+                            <Mail className="w-4 h-4 mr-2 text-blue-400" /> Send Email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleBan(user)} className={user.status === 'banned' ? 'text-green-400' : 'text-amber-400'}>
+                            <Ban className="w-4 h-4 mr-2" /> {user.status === 'banned' ? 'Unban' : 'Ban'} User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteUser(user)} className="text-red-400">
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete User
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
         <DialogContent className="bg-card border-border/40">
-          <DialogHeader><DialogTitle className="text-foreground">Change Role for {roleDialogUser?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
-            <Select value={newRole} onValueChange={setNewRole}>
-              <SelectTrigger className="bg-secondary/40 border-border/30"><SelectValue placeholder="Select role" /></SelectTrigger>
-              <SelectContent className="bg-card border-border/40">
-                      {availableRoles.map((role) => (
-                        <SelectItem key={role.id} value={role.name.toLowerCase()}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-            </Select>
-            <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button onClick={changeRole}>Save</Button></DialogFooter>
+          <DialogHeader>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Change Role for {roleDialogUser?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Select New Role</Label>
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger className="bg-secondary/40 border-border/30">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border/40">
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role.id} value={role.name.toLowerCase()}>{role.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2">
+              <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+              <Button onClick={changeRole}>Save Changes</Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
@@ -513,137 +610,44 @@ export default function AdminUsers() {
       }}>
         <DialogContent className="bg-card border-border/40 max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Send Email to {emailUser?.name}</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Compose and send an email to {emailUser?.email}
-            </DialogDescription>
+            <DialogTitle className="text-foreground flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Send Email to {emailUser?.name}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">Compose and send an email to {emailUser?.email}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
               <Label htmlFor="subject">Subject</Label>
-              <Input
-                id="subject"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Enter email subject"
-                className="bg-secondary/40 border-border/30"
-                disabled={isSendingEmail}
+              <Input 
+                id="subject" 
+                value={emailSubject} 
+                onChange={(e) => setEmailSubject(e.target.value)} 
+                placeholder="Enter email subject" 
+                className="bg-secondary/40 border-border/30" 
+                disabled={isSendingEmail} 
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="message">Message</Label>
-              <Textarea
-                id="message"
-                value={emailMessage}
-                onChange={(e) => setEmailMessage(e.target.value)}
-                placeholder="Type your message here..."
-                className="bg-secondary/40 border-border/30 min-h-[150px]"
-                disabled={isSendingEmail}
+              <Textarea 
+                id="message" 
+                value={emailMessage} 
+                onChange={(e) => setEmailMessage(e.target.value)} 
+                placeholder="Type your message here..." 
+                className="bg-secondary/40 border-border/30 min-h-[150px] resize-none" 
+                disabled={isSendingEmail} 
               />
             </div>
-            <DialogFooter className="gap-2">
-              <DialogClose asChild>
-                <Button variant="outline" disabled={isSendingEmail}>
-                  Cancel
-                </Button>
-              </DialogClose>
-              <Button 
-                onClick={sendCustomEmail} 
-                disabled={isSendingEmail || !emailSubject.trim() || !emailMessage.trim()}
-              >
-                {isSendingEmail ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-4 h-4 mr-2" />
-                    Send Email
-                  </>
-                )}
+            <DialogFooter className="gap-2 pt-2">
+              <DialogClose asChild><Button variant="outline" disabled={isSendingEmail}>Cancel</Button></DialogClose>
+              <Button onClick={sendCustomEmail} disabled={isSendingEmail || !emailSubject.trim() || !emailMessage.trim()}>
+                {isSendingEmail ? "Sending..." : "Send Email"}
               </Button>
             </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
-
-      <Card className="bg-card/60 border-border/40">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <CardTitle className="text-sm font-medium text-foreground">All Users ({filtered.length})</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Search users..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-secondary/40 border-border/30 text-sm" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center space-x-4 p-4 border-b border-border/20">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-8 w-8" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/30 hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">User</TableHead>
-                  <TableHead className="text-muted-foreground">Role</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="text-muted-foreground">Plan</TableHead>
-                  <TableHead className="text-muted-foreground">Joined</TableHead>
-                  <TableHead className="text-muted-foreground w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      No users found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map((u) => (
-                    <TableRow key={u.id} className="border-border/20 hover:bg-secondary/20">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-foreground">{u.name.split(" ").map((n) => n[0]).join("")}</div>
-                          <div><div className="text-sm font-medium text-foreground">{u.name}</div><div className="text-xs text-muted-foreground">{u.email}</div></div>
-                        </div>
-                      </TableCell>
-                      <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${roleBadge(u.role)}`}>{u.role}</Badge></TableCell>
-                      <TableCell><Badge variant="outline" className={`text-[10px] capitalize ${statusBadge(u.status)}`}>{u.status}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{u.plan}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{u.joined}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-card border-border/40">
-                            <DropdownMenuItem className="text-xs" onClick={() => { setRoleDialogUser(u); setNewRole(u.role); setRoleDialogOpen(true); }}><Shield className="w-3 h-3 mr-2" /> Change Role</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs" onClick={() => sendEmail(u)}><Mail className="w-3 h-3 mr-2" /> Send Email</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs" onClick={() => toggleBan(u)}><Ban className="w-3 h-3 mr-2" /> {u.status === "banned" ? "Unban" : "Ban"} User</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs text-red-400" onClick={() => deleteUser(u)}><Trash2 className="w-3 h-3 mr-2" /> Delete User</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

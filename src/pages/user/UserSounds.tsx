@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Play, Pause, SkipForward, Volume2, Clock, Heart, Waves, CloudRain, Wind
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -14,9 +15,10 @@ export default function UserSounds() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [soundsData, setSoundsData] = useState<any>(null);
-  const [playing, setPlaying] = useState<number | null>(null);
+  const [playing, setPlaying] = useState<any>(null);
   const [category, setCategory] = useState("All");
   const [volume, setVolume] = useState([75]);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,6 +43,36 @@ export default function UserSounds() {
       toast.error('Failed to load sounds');
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume[0] / 100;
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    if (playing) {
+      if (audioRef.current.src !== playing.audio_url) {
+        audioRef.current.src = playing.audio_url;
+      }
+      audioRef.current.play().catch(err => {
+        console.error("Audio play error:", err);
+        toast.error("Could not play audio file");
+      });
+    } else {
+      audioRef.current.pause();
+    }
+  }, [playing]);
+
+  const togglePlay = (sound: any) => {
+    if (playing?.id === sound.id) {
+      setPlaying(null);
+    } else {
+      setPlaying(sound);
     }
   };
 
@@ -79,22 +111,35 @@ export default function UserSounds() {
 
       {/* Now Playing */}
       {playing !== null && (
-        <Card className="bg-gradient-to-r from-primary/10 to-card/60 border-primary/20">
+        <Card className="bg-gradient-to-r from-primary/10 to-card/60 border-primary/20 overflow-hidden relative">
+          <motion.div 
+            className="absolute bottom-0 left-0 h-0.5 bg-primary/40"
+            initial={{ width: 0 }}
+            animate={{ width: "100%" }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          />
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sounds.find((s: any) => s.id === playing)?.color}`}>
-                {(() => { const Icon = getIcon(sounds.find((s: any) => s.id === playing)?.category || ''); return <Icon className="w-6 h-6" />; })()}
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${playing.color}`}>
+                {(() => { const Icon = getIcon(playing.category); return <Icon className="w-6 h-6" />; })()}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-foreground">{sounds.find((s) => s.id === playing)?.title}</div>
-                <div className="text-xs text-muted-foreground">Now Playing</div>
+                <div className="text-sm font-medium text-foreground">{playing.title}</div>
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <div className="flex gap-0.5 items-end h-3">
+                    {[1, 2, 3].map(i => (
+                      <motion.div key={i} className="w-0.5 bg-primary rounded-full" animate={{ height: ["40%", "100%", "40%"] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }} />
+                    ))}
+                  </div>
+                  Now Playing
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 w-32">
                   <Volume2 className="w-4 h-4 text-muted-foreground shrink-0" />
                   <Slider value={volume} onValueChange={setVolume} max={100} step={1} className="flex-1" />
                 </div>
-                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setPlaying(null)}>
+                <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/10" onClick={() => setPlaying(null)}>
                   <Pause className="w-5 h-5 text-primary" />
                 </Button>
               </div>
@@ -115,7 +160,7 @@ export default function UserSounds() {
       {/* Sounds Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {filtered.map((sound) => (
-          <Card key={sound.id} className={`bg-card/60 border-border/40 transition-all cursor-pointer hover:border-primary/30 ${playing === sound.id ? "ring-1 ring-primary/40" : ""}`}>
+          <Card key={sound.id} className={`bg-card/60 border-border/40 transition-all cursor-pointer hover:border-primary/30 ${playing?.id === sound.id ? "ring-1 ring-primary/40 border-primary/30" : ""}`}>
             <CardContent className="p-4 text-center">
               <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3 ${sound.color}`}>
                 {(() => { const Icon = getIcon(sound.category); return <Icon className="w-7 h-7" />; })()}
@@ -127,8 +172,8 @@ export default function UserSounds() {
                 <Badge variant="outline" className="text-[9px] bg-secondary text-muted-foreground border-border/30">{sound.category}</Badge>
               </div>
               <div className="flex items-center gap-2">
-                <Button size="sm" className={`flex-1 text-xs ${playing === sound.id ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`} onClick={() => setPlaying(playing === sound.id ? null : sound.id)}>
-                  {playing === sound.id ? <><Pause className="w-3 h-3 mr-1.5" /> Stop</> : <><Play className="w-3 h-3 mr-1.5" /> Play</>}
+                <Button size="sm" className={`flex-1 text-xs ${playing?.id === sound.id ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-primary/10 text-primary hover:bg-primary/20"}`} onClick={() => togglePlay(sound)}>
+                  {playing?.id === sound.id ? <><Pause className="w-3 h-3 mr-1.5" /> Stop</> : <><Play className="w-3 h-3 mr-1.5" /> Play</>}
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
                   <Heart className={`w-3.5 h-3.5 ${sound.favorite ? "fill-red-400 text-red-400" : "text-muted-foreground"}`} />
@@ -138,6 +183,8 @@ export default function UserSounds() {
           </Card>
         ))}
       </div>
+
+      <audio ref={audioRef} onEnded={() => setPlaying(null)} />
     </div>
   );
 }

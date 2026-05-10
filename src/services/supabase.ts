@@ -3118,7 +3118,7 @@ export const api: ApiMethods = {
             .from('profiles')
             .select('full_name')
             .eq('id', thread.user_id)
-            .single();
+            .maybeSingle();
 
           const fullName = profile?.full_name || 'Unknown User';
           activities.push({
@@ -3138,7 +3138,7 @@ export const api: ApiMethods = {
             .from('profiles')
             .select('full_name')
             .eq('id', report.reporter_id)
-            .single();
+            .maybeSingle();
 
           const fullName = profile?.full_name || 'Unknown User';
           activities.push({
@@ -4478,7 +4478,7 @@ export const api: ApiMethods = {
   },
   toggleIntegration: async (name: string) => {
     try {
-      const { data: current } = await supabase.from('integrations').select('connected').eq('name', name).single();
+      const { data: current } = await supabase.from('integrations').select('connected').eq('name', name).maybeSingle();
       const { error } = await supabase.from('integrations').update({ connected: !current?.connected }).eq('name', name);
       if (error) throw error;
       return { success: true, message: `Integration ${name} ${!current?.connected ? 'connected' : 'disconnected'}` };
@@ -4515,6 +4515,54 @@ export const api: ApiMethods = {
       const { error } = await supabase.from('api_keys').update({ status: 'revoked' }).eq('name', name);
       if (error) throw error;
       return { success: true, message: 'API key revoked' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+
+  // --- Daily Inspiration (Quotes) Functions ---
+  fetchDailyInspirations: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_inspiration')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+
+  createDailyInspiration: async (quoteData: { text: string; author: string; stage: string }) => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_inspiration')
+        .insert([quoteData])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+
+  updateDailyInspiration: async (id: string, quoteData: Partial<{ text: string; author: string; stage: string }>) => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_inspiration')
+        .update(quoteData)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+
+  deleteDailyInspiration: async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('daily_inspiration')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return { success: true };
     } catch (error) { return handleSupabaseError(error); }
   },
 };
