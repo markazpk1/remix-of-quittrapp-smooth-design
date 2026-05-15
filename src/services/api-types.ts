@@ -160,7 +160,7 @@ export interface ApiMethods {
   approveReferral(id: string): Promise<ApiResponse>;
   rejectReferral(id: string): Promise<ApiResponse>;
   updateAffiliateTier(tierName: string, data: any): Promise<ApiResponse>;
-  getAuditLogs(params?: { limit?: number; offset?: number; severity?: string; category?: string }): Promise<ApiResponse>;
+  getAuditLogs(filter?: AuditLogFilter): Promise<ApiResponse>;
   getAuditStats(): Promise<ApiResponse>;
   getGeneralSettings(): Promise<ApiResponse>;
   getBrandingSettings(): Promise<ApiResponse>;
@@ -179,4 +179,38 @@ export interface ApiMethods {
   createDailyInspiration(quoteData: { text: string; author: string; stage: string }): Promise<ApiResponse>;
   updateDailyInspiration(id: string, quoteData: Partial<{ text: string; author: string; stage: string }>): Promise<ApiResponse>;
   deleteDailyInspiration(id: string): Promise<ApiResponse>;
+  getEmailMarketingStats(): Promise<ApiResponse>;
+  getEmailCampaigns(): Promise<ApiResponse>;
+  getSubscriberGrowth(): Promise<ApiResponse>;
+  createEmailTemplate(data: any): Promise<ApiResponse>;
+  updateEmailTemplate(id: string, data: any): Promise<ApiResponse>;
+  deleteEmailTemplate(id: string): Promise<ApiResponse>;
+  getSmtpSettings(): Promise<ApiResponse>;
+  updateSmtpSettings(data: any): Promise<ApiResponse>;
+  createEmailCampaign(data: any): Promise<ApiResponse>;
+  deleteEmailCampaign(id: string): Promise<ApiResponse>;
+  getWhatsappStats(): Promise<ApiResponse>;
+  getWhatsappTemplates(): Promise<ApiResponse>;
+  createWhatsappTemplate(data: any): Promise<ApiResponse>;
+  updateWhatsappTemplate(id: string, data: any): Promise<ApiResponse>;
+  deleteWhatsappTemplate(id: string): Promise<ApiResponse>;
+  getWhatsappCampaigns(): Promise<ApiResponse>;
+  createWhatsappCampaign(data: any): Promise<ApiResponse>;
+  deleteWhatsappCampaign(id: string): Promise<ApiResponse>;
+  getWhatsappSettings(): Promise<ApiResponse>;
+  updateWhatsappSettings(data: any): Promise<ApiResponse>;
+  getAiSettings(): Promise<ApiResponse>;
+  updateAiSettings(data: any): Promise<ApiResponse>;
+  getAiInteractions(): Promise<ApiResponse>;
+  createAiInteraction(message: string): Promise<ApiResponse>;
+  generateAiLesson(prompt: string): Promise<ApiResponse>;
+  getAiLessons(): Promise<ApiResponse>;
+
+}
+
+export interface AuditLogFilter {
+  limit?: number;
+  offset?: number;
+  severity?: string;
+  category?: string;
 }

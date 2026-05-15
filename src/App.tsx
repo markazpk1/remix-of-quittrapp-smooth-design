@@ -27,6 +27,12 @@ import AdminRoles from "./pages/admin/AdminRoles";
 import AdminMedia from "./pages/admin/AdminMedia";
 import AdminAffiliates from "./pages/admin/AdminAffiliates";
 import AdminInspiration from "./pages/admin/AdminInspiration";
+import AdminEmailMarketing from "./pages/admin/AdminEmailMarketing";
+import AdminEmailTemplates from "./pages/admin/AdminEmailTemplates";
+import AdminWhatsappMarketing from "./pages/admin/AdminWhatsappMarketing";
+import AdminWhatsappTemplates from "./pages/admin/AdminWhatsappTemplates";
+import AdminAiSettings from "./pages/admin/AdminAiSettings";
+import AdminAiTrainer from "./pages/admin/AdminAiTrainer";
 import UserLayout from "./components/user/UserLayout";
 import UserDashboard from "./pages/user/UserDashboard";
 import UserProgress from "./pages/user/UserProgress";
@@ -82,6 +88,12 @@ const App = () => (
                   <Route path="roles" element={<AdminRoles />} />
                   <Route path="affiliates" element={<AdminAffiliates />} />
                   <Route path="inspiration" element={<AdminInspiration />} />
+                  <Route path="email-marketing" element={<AdminEmailMarketing />} />
+                  <Route path="email-templates" element={<AdminEmailTemplates />} />
+                  <Route path="whatsapp-marketing" element={<AdminWhatsappMarketing />} />
+                  <Route path="whatsapp-templates" element={<AdminWhatsappTemplates />} />
+                  <Route path="ai-settings" element={<AdminAiSettings />} />
+                  <Route path="ai-trainer" element={<AdminAiTrainer />} />
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
                 <Route path="/app" element={

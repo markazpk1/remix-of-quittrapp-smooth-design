@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, ChevronLeft, LogOut, Blocks, BookOpen, MessageSquare, CreditCard, Bell, BarChart3, ScrollText, LifeBuoy, ShieldCheck, ImageIcon, Handshake, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Settings, ChevronLeft, LogOut, Blocks, BookOpen, MessageSquare, CreditCard, Bell, BarChart3, ScrollText, LifeBuoy, ShieldCheck, ImageIcon, Handshake, Sparkles, Mail, MessageCircle, Smartphone, Bot } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import {
@@ -36,6 +36,12 @@ const items = [
   { title: "Media Library", url: "/admin/media", icon: ImageIcon },
   { title: "Reports", url: "/admin/reports", icon: BarChart3 },
   { title: "Affiliates", url: "/admin/affiliates", icon: Handshake },
+  { title: "Email Marketing", url: "/admin/email-marketing", icon: Mail },
+  { title: "Email Templates", url: "/admin/email-templates", icon: FileText },
+  { title: "WhatsApp Marketing", url: "/admin/whatsapp-marketing", icon: MessageCircle },
+  { title: "WhatsApp Templates", url: "/admin/whatsapp-templates", icon: Smartphone },
+  { title: "Agentic AI Settings", url: "/admin/ai-settings", icon: Sparkles },
+  { title: "Recovery Trainer", url: "/admin/ai-trainer", icon: Bot },
   { title: "Audit Logs", url: "/admin/audit-logs", icon: ScrollText },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];

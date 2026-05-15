@@ -1,4 +1,4 @@
-import type { ApiMethods } from './api-types';
+import type { ApiMethods, AuditLogFilter } from './api-types';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://mevrcomujfroqfopdcok.supabase.co';
@@ -4330,7 +4330,7 @@ export const api: ApiMethods = {
       return handleSupabaseError(error);
     }
   },
-  getAuditLogs: async (params?: { limit?: number; offset?: number; severity?: string; category?: string }) => {
+  getAuditLogs: async (params?: AuditLogFilter) => {
     try {
       let query = supabase
         .from('audit_logs')
@@ -4350,12 +4350,15 @@ export const api: ApiMethods = {
         data: (data || []).map(l => ({
           id: l.id,
           action: l.action,
+          text: l.action, // Support for simplified UI
+          time: new Date(l.created_at).toLocaleString(), // Support for simplified UI
           actor: l.actor_name,
           target: l.target,
           category: l.category,
           severity: l.severity,
           ip: l.ip_address || '0.0.0.0',
-          timestamp: new Date(l.created_at).toLocaleString()
+          timestamp: new Date(l.created_at).toLocaleString(),
+          details: l.details
         }))
       };
     } catch (error) {
@@ -4460,11 +4463,51 @@ export const api: ApiMethods = {
   },
   getEmailTemplates: async () => {
     try {
-      const { data, error } = await supabase.from('email_templates').select('*');
+      const { data, error } = await supabase.from('email_templates').select('*').order('updated_at', { ascending: false });
       if (error && !error.message.includes('relation')) throw error;
-      return { success: true, data: (data || []).map(t => ({
-        name: t.name, subject: t.subject, lastEdited: new Date(t.updated_at).toLocaleDateString(), status: t.status
-      })) };
+      return { 
+        success: true, 
+        data: (data || []).map(t => ({
+          id: t.id,
+          name: t.name,
+          subject: t.subject,
+          body: t.body,
+          lastEdited: new Date(t.updated_at).toLocaleDateString(),
+          status: t.status
+        })) 
+      };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  createEmailTemplate: async (data: any) => {
+    try {
+      const { error } = await supabase.from('email_templates').insert([{
+        name: data.name,
+        subject: data.subject,
+        body: data.body,
+        status: data.status || 'draft'
+      }]);
+      if (error) throw error;
+      return { success: true, message: 'Template created successfully' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  updateEmailTemplate: async (id: string, data: any) => {
+    try {
+      const { error } = await supabase.from('email_templates').update({
+        name: data.name,
+        subject: data.subject,
+        body: data.body,
+        status: data.status,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) throw error;
+      return { success: true, message: 'Template updated successfully' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  deleteEmailTemplate: async (id: string) => {
+    try {
+      const { error } = await supabase.from('email_templates').delete().eq('id', id);
+      if (error) throw error;
+      return { success: true, message: 'Template deleted successfully' };
     } catch (error) { return handleSupabaseError(error); }
   },
   getIntegrations: async () => {
@@ -4563,6 +4606,324 @@ export const api: ApiMethods = {
         .eq('id', id);
       if (error) throw error;
       return { success: true };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getEmailMarketingStats: async () => {
+    try {
+      const [subs, campaigns] = await Promise.all([
+        supabase.from('subscribers').select('id', { count: 'exact', head: true }),
+        supabase.from('email_marketing_campaigns').select('sent_count, open_count, click_count')
+      ]);
+
+      const totalSubs = subs.count || 0;
+      const allCampaigns = campaigns.data || [];
+      
+      const totalSent = allCampaigns.reduce((acc, c) => acc + (c.sent_count || 0), 0);
+      const totalOpened = allCampaigns.reduce((acc, c) => acc + (c.open_count || 0), 0);
+      const totalClicked = allCampaigns.reduce((acc, c) => acc + (c.click_count || 0), 0);
+      
+      const openRate = totalSent > 0 ? (totalOpened / totalSent * 100).toFixed(1) : "0";
+      const clickRate = totalSent > 0 ? (totalClicked / totalSent * 100).toFixed(1) : "0";
+
+      return {
+        success: true,
+        data: [
+          { label: "Total Subscribers", value: totalSubs.toLocaleString(), change: "", up: true, icon: "Users", color: "text-blue-500" },
+          { label: "Avg. Open Rate", value: `${openRate}%`, change: "", up: true, icon: "Eye", color: "text-emerald-500" },
+          { label: "Avg. Click Rate", value: `${clickRate}%`, change: "", up: false, icon: "MousePointer2", color: "text-amber-500" },
+          { label: "Emails Sent (All Time)", value: totalSent > 1000 ? `${(totalSent/1000).toFixed(1)}K` : totalSent.toString(), change: "", up: true, icon: "Send", color: "text-purple-500" },
+        ]
+      };
+    } catch (error) {
+      console.error("Failed to fetch email marketing stats:", error);
+      return { success: true, data: [] }; // Return empty to avoid crash
+    }
+  },
+  getEmailCampaigns: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_marketing_campaigns')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error && !error.message.includes('relation')) throw error;
+      
+      return {
+        success: true,
+        data: (data || []).map(c => ({
+          id: c.id,
+          name: c.name,
+          status: c.status.charAt(0).toUpperCase() + c.status.slice(1),
+          sent: c.sent_count || 0,
+          openRate: c.sent_count > 0 ? `${(c.open_count / c.sent_count * 100).toFixed(1)}%` : "0%",
+          clickRate: c.sent_count > 0 ? `${(c.click_count / c.sent_count * 100).toFixed(1)}%` : "0%",
+          lastSent: c.last_sent_at ? new Date(c.last_sent_at).toLocaleDateString() : "Never",
+          type: c.type.charAt(0).toUpperCase() + c.type.slice(1)
+        }))
+      };
+    } catch (error) {
+      return handleSupabaseError(error);
+    }
+  },
+  getSubscriberGrowth: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscribers')
+        .select('created_at')
+        .order('created_at', { ascending: true });
+
+      if (error && !error.message.includes('relation')) throw error;
+
+      // Group by date and accumulate
+      const growthMap: Record<string, number> = {};
+      let runningTotal = 0;
+      
+      (data || []).forEach(s => {
+        const date = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+        runningTotal++;
+        growthMap[date] = runningTotal;
+      });
+
+      return {
+        success: true,
+        data: Object.entries(growthMap).map(([date, count]) => ({ date, subscribers: count }))
+      };
+    } catch (error) {
+      return handleSupabaseError(error);
+    }
+  },
+  getSmtpSettings: async () => {
+    try {
+      const { data, error } = await supabase.from('smtp_settings').select('*').limit(1).maybeSingle();
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  updateSmtpSettings: async (data: any) => {
+    try {
+      // Find the first record to update or insert if none exists
+      const { data: existing } = await supabase.from('smtp_settings').select('id').limit(1).maybeSingle();
+      
+      let res;
+      if (existing) {
+        res = await supabase.from('smtp_settings').update(data).eq('id', existing.id);
+      } else {
+        res = await supabase.from('smtp_settings').insert([data]);
+      }
+      
+      if (res.error) throw res.error;
+      await supabase.from('audit_logs').insert([{ action: 'SMTP settings updated' }]);
+      return { success: true, message: 'SMTP settings updated' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  createEmailCampaign: async (data: any) => {
+    try {
+      const { error } = await supabase.from('email_marketing_campaigns').insert([{
+        name: data.name,
+        type: data.type,
+        template_id: data.templateId,
+        status: data.status
+      }]);
+      if (error) throw error;
+      await supabase.from('audit_logs').insert([{ action: `Email campaign '${data.name}' created`, details: data }]);
+      return { success: true, message: 'Campaign created successfully' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  deleteEmailCampaign: async (id: string) => {
+    try {
+      const { error } = await supabase.from('email_marketing_campaigns').delete().eq('id', id);
+      if (error) throw error;
+      await supabase.from('audit_logs').insert([{ action: `Email campaign deleted (ID: ${id})` }]);
+      return { success: true, message: 'Campaign deleted successfully' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getWhatsappStats: async () => {
+    try {
+      const { data, error } = await supabase.from('whatsapp_campaigns').select('sent_count, delivered_count, read_count');
+      if (error && !error.message.includes('relation')) throw error;
+      
+      const campaigns = data || [];
+      const totalSent = campaigns.reduce((acc, c) => acc + (c.sent_count || 0), 0);
+      const totalDelivered = campaigns.reduce((acc, c) => acc + (c.delivered_count || 0), 0);
+      const totalRead = campaigns.reduce((acc, c) => acc + (c.read_count || 0), 0);
+      
+      const deliveryRate = totalSent > 0 ? (totalDelivered / totalSent * 100).toFixed(1) : "0";
+      const readRate = totalDelivered > 0 ? (totalRead / totalDelivered * 100).toFixed(1) : "0";
+
+      return {
+        success: true,
+        data: [
+          { label: "Messages Sent", value: totalSent.toLocaleString(), change: "", up: true, icon: "MessageCircle", color: "text-emerald-500" },
+          { label: "Delivery Rate", value: `${deliveryRate}%`, change: "", up: true, icon: "CheckCheck", color: "text-blue-500" },
+          { label: "Read Rate", value: `${readRate}%`, change: "", up: true, icon: "Eye", color: "text-purple-500" },
+          { label: "Avg. Engagement", value: `${((parseFloat(deliveryRate) + parseFloat(readRate))/2).toFixed(1)}%`, change: "", up: true, icon: "MousePointer2", color: "text-amber-500" },
+        ]
+      };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getWhatsappTemplates: async () => {
+    try {
+      const { data, error } = await supabase.from('whatsapp_templates').select('*').order('created_at', { ascending: false });
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data: (data || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        category: t.category,
+        language: t.language,
+        body: t.body,
+        header: t.header_text,
+        footer: t.footer_text,
+        status: t.status,
+        lastEdited: new Date(t.updated_at).toLocaleDateString()
+      })) };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  createWhatsappTemplate: async (data: any) => {
+    try {
+      const { error } = await supabase.from('whatsapp_templates').insert([data]);
+      if (error) throw error;
+      await supabase.from('audit_logs').insert([{ action: `WhatsApp template '${data.name}' created`, details: data }]);
+      return { success: true, message: 'WhatsApp template created' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  updateWhatsappTemplate: async (id: string, data: any) => {
+    try {
+      const { error } = await supabase.from('whatsapp_templates').update({
+        ...data,
+        updated_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) throw error;
+      await supabase.from('audit_logs').insert([{ action: `WhatsApp template updated (ID: ${id})`, details: data }]);
+      return { success: true, message: 'WhatsApp template updated' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  deleteWhatsappTemplate: async (id: string) => {
+    try {
+      const { error } = await supabase.from('whatsapp_templates').delete().eq('id', id);
+      if (error) throw error;
+      await supabase.from('audit_logs').insert([{ action: `WhatsApp template deleted (ID: ${id})` }]);
+      return { success: true, message: 'WhatsApp template deleted' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getWhatsappCampaigns: async () => {
+    try {
+      const { data, error } = await supabase.from('whatsapp_campaigns').select('*, template:whatsapp_templates(name)').order('created_at', { ascending: false });
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data: (data || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        status: c.status.charAt(0).toUpperCase() + c.status.slice(1),
+        sent: c.sent_count || 0,
+        delivered: c.delivered_count || 0,
+        read: c.read_count || 0,
+        lastSent: c.last_sent_at ? new Date(c.last_sent_at).toLocaleDateString() : "Never",
+        templateName: c.template?.name || "No Template"
+      })) };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  createWhatsappCampaign: async (data: any) => {
+    try {
+      const { error } = await supabase.from('whatsapp_campaigns').insert([data]);
+      if (error) throw error;
+      return { success: true, message: 'WhatsApp campaign created' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  deleteWhatsappCampaign: async (id: string) => {
+    try {
+      const { error } = await supabase.from('whatsapp_campaigns').delete().eq('id', id);
+      if (error) throw error;
+      return { success: true, message: 'WhatsApp campaign deleted' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getWhatsappSettings: async () => {
+    try {
+      const { data, error } = await supabase.from('whatsapp_settings').select('*').limit(1).maybeSingle();
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  updateWhatsappSettings: async (data: any) => {
+    try {
+      const { data: existing } = await supabase.from('whatsapp_settings').select('id').limit(1).maybeSingle();
+      let res;
+      if (existing) {
+        res = await supabase.from('whatsapp_settings').update({
+          ...data,
+          updated_at: new Date().toISOString()
+        }).eq('id', existing.id);
+      } else {
+        res = await supabase.from('whatsapp_settings').insert([data]);
+      }
+      if (res.error) throw res.error;
+      return { success: true, message: 'WhatsApp settings updated' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getAiSettings: async () => {
+    try {
+      const { data, error } = await supabase.from('ai_agent_settings').select('*').limit(1).maybeSingle();
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  updateAiSettings: async (data: any) => {
+    try {
+      const { data: existing } = await supabase.from('ai_agent_settings').select('id').limit(1).maybeSingle();
+      let res;
+      if (existing) {
+        res = await supabase.from('ai_agent_settings').update({
+          ...data,
+          updated_at: new Date().toISOString()
+        }).eq('id', existing.id);
+      } else {
+        res = await supabase.from('ai_agent_settings').insert([data]);
+      }
+      if (res.error) throw res.error;
+      return { success: true, message: 'AI Settings updated' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getAiInteractions: async () => {
+    try {
+      const { data, error } = await supabase.from('ai_admin_interactions').select('*').order('created_at', { ascending: true });
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data: data || [] };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  createAiInteraction: async (message: string) => {
+    try {
+      const { data: aiSettings } = await supabase.from('ai_agent_settings').select('*').limit(1).maybeSingle();
+      
+      let response = "I'm currently in training mode. Please configure your OpenAI API Key in settings to enable real-time recovery coaching.";
+      
+      if (aiSettings?.api_key) {
+        response = `Processing recovery strategy for: "${message}" using ${aiSettings.model_name}... [Real AI response would appear here with API integration]`;
+      }
+
+      const { error } = await supabase.from('ai_admin_interactions').insert([{
+        message,
+        response,
+        action_taken: 'none'
+      }]);
+      if (error) throw error;
+      return { success: true, data: { message, response } };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  generateAiLesson: async (prompt: string) => {
+    try {
+      const content = `[DRAFT] Lesson Topic: ${prompt}\n\nThis lesson plan was initialized by the AI Trainer. [Real AI content would be generated here if API key is provided].`;
+      const { error } = await supabase.from('ai_generated_lessons').insert([{
+        topic: prompt,
+        content,
+        islamic_context: 'Pending AI Analysis'
+      }]);
+      if (error) throw error;
+      return { success: true, message: 'AI Lesson draft created' };
+    } catch (error) { return handleSupabaseError(error); }
+  },
+  getAiLessons: async () => {
+    try {
+      const { data, error } = await supabase.from('ai_generated_lessons').select('*').order('created_at', { ascending: false });
+      if (error && !error.message.includes('relation')) throw error;
+      return { success: true, data: data || [] };
     } catch (error) { return handleSupabaseError(error); }
   },
 };
